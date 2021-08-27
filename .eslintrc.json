@@ -1,0 +1,24 @@
+{
+  "extends": ["prettier"],
+  "parser": "@typescript-eslint/parser",
+  "env": {
+    "webextensions": true,
+    "browser": true
+  },
+  "globals": {
+    "__FIREFOX__": true,
+    "__CHROME__": true,
+    "_gaq": true
+  },
+  "plugins": ["prettier", "@typescript-eslint"],
+  "rules": {
+    "prettier/prettier": ["error", {
+      "printWidth": 80,
+      "singleQuote": true,
+      "semi": false,
+      "quoteProps": "consistent"
+    }],
+    "prefer-arrow/prefer-arrow-functions": ["error", {} ],
+    "no-console": ["error", { }]
+  }
+}
