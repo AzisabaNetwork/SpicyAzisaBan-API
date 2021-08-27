@@ -109,20 +109,10 @@ router.get('/register/:id', w(async (req, res) => {
   })
 }))
 
-router.post('/logout', w((req, res) => {
-  if (req.body) {
-    const session = getSessionKey(req)
-    if (session) delete sessions[session]
-  }
+router.all('/logout', w((req, res) => {
+  const session = getSessionKey(req)
+  if (session) delete sessions[session]
   res.send({ message: 'ok' })
-}))
-
-router.get('/logout', w((req, res) => {
-  if (req.cookies) {
-    const session = getSessionKey(req)
-    if (session) delete sessions[session]
-  }
-  res.redirect('/')
 }))
 
 router.get('/me', w(async (req, res) => {
