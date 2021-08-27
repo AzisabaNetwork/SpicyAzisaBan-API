@@ -8,7 +8,7 @@ import {
     isValidName,
     validate2FAToken,
     generateSecureRandomString,
-    w,
+    w, getSessionKey,
 } from '../util/util'
 import { createNew } from '../util/totp'
 export const router = express.Router()
@@ -23,14 +23,15 @@ router.post('/check_email', w(async (req, res) => {
 
 router.post('/changename', w(async (req, res) => {
     // request:
-    // - state: string
     // - user_id: number
     // - username: string
+    // - state: string (optional)
     // response:
     // - message: 'ok'
     if (!req.body || typeof req.body !== 'object') return res.status(400).send({ error: 'invalid_params' })
-    const state = String(req.body.state)
+    let state = String(req.body.state)
     let session = validateAndGetSession(req)
+    if (session) state = getSessionKey(req) || ''
     if (!session && !state) return res.status(400).send({ error: 'invalid_params' })
     if (!session) session = sessions[state]
     if (!session) return res.status(400).send({ error: 'invalid_params' })
