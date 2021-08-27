@@ -35,6 +35,7 @@ declare type Punishment = {
   end: number
   server: string
   extra: string
+  unpunished?: boolean
 }
 
 declare type User = {
