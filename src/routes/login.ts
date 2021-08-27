@@ -119,6 +119,7 @@ router.get('/me', w(async (req, res) => {
   const session = validateAndGetSession(req)
   if (!session) return res.send401()
   const user = await sql.findOne("SELECT `id`, `username`, `email`, `group`, `last_update` FROM `users` WHERE `id` = ?", session.user_id)
+  if (!user) return res.send401()
   /*
   if (user && user.banned) {
     session.pending = true
