@@ -13,13 +13,13 @@ const cors = require('cors')
 //const csrf = require('csurf')
 
 sql.init()
-    .then(async () => {
-        debug('Preparing bcrypt')
-        const rounds = await crypt.getGoodSaltRounds()
-        debug(`Found good salt rounds: ${rounds}`)
-    })
-    // @ts-ignore
-    .then(() => process.emit('ready'))
+  .then(async () => {
+    debug('Preparing bcrypt')
+    const rounds = await crypt.getGoodSaltRounds()
+    debug(`Found good salt rounds: ${rounds}`)
+  })
+  // @ts-ignore
+  .then(() => process.emit('ready'))
 
 import { router as indexRouter } from './routes'
 
@@ -31,25 +31,25 @@ app.set('view engine', 'ejs')
 
 // @ts-ignore
 app.use((req: Request, res: Response, next) => {
-    res.send401 = () => res.status(401).send({ error: 'unauthorized' })
-    res.send403 = () => res.status(403).send({ error: 'forbidden' })
-    res.send404 = () => res.status(404).send({ error: 'not_found' })
-    res.send429 = () => res.status(429).send({ error: 'too_many_requests' })
-    res.send500 = async (err: any) => {
-        if (debugEnabled) {
-            debug('an error occurred:', err.stack || err)
-        }
-        res.status(err.status || 500).send({ error: 'unknown' })
+  res.send401 = () => res.status(401).send({ error: 'unauthorized' })
+  res.send403 = () => res.status(403).send({ error: 'forbidden' })
+  res.send404 = () => res.status(404).send({ error: 'not_found' })
+  res.send429 = () => res.status(429).send({ error: 'too_many_requests' })
+  res.send500 = async (err: any) => {
+    if (debugEnabled) {
+      debug('an error occurred:', err.stack || err)
     }
-    next()
+    res.status(err.status || 500).send({ error: 'unknown' })
+  }
+  next()
 })
 
 app.use(logger('dev', {
-    stream: {
-        write: s => {
-            debug(s.substring(0, s.length - 1))
-        }
+  stream: {
+    write: s => {
+      debug(s.substring(0, s.length - 1))
     }
+  }
 }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
@@ -70,23 +70,23 @@ app.all('*', function (req: Request, res: Response, next) {
 // restrict access for /admin routes
 // @ts-ignore
 app.use('/admin', async (req: Request, res: Response, next) => {
-    const session = req.session = validateAndGetSession(req)
-    if (!session) return res.send401()
-    const user = req.user = await getUser(session.user_id)
-    if (user?.group !== 'admin') {
-        return res.send403()
-    }
-    next()
+  const session = req.session = validateAndGetSession(req)
+  if (!session) return res.send401()
+  const user = req.user = await getUser(session.user_id)
+  if (user?.group !== 'admin') {
+    return res.send403()
+  }
+  next()
 })
 
 let apiRequests: { [ip: string]: number } = {}
 
 app.use('/api', (req, res, next) => {
-    const limit = 1000
-    const ip = getIPAddress(req)
-    if (apiRequests[ip] >= limit) return res.status(429).send({ error: 'too_many_requests' })
-    apiRequests[ip] = (apiRequests[ip] || 0) + 1
-    next()
+  const limit = 1000
+  const ip = getIPAddress(req)
+  if (apiRequests[ip] >= limit) return res.status(429).send({ error: 'too_many_requests' })
+  apiRequests[ip] = (apiRequests[ip] || 0) + 1
+  next()
 })
 
 // reset rate limit every 1m
@@ -95,24 +95,24 @@ setInterval(() => apiRequests = {}, 1000 * 60)
 app.use('/', indexRouter)
 
 app.get('/500', w(async () => {
-    throw new Error('something broke')
+  throw new Error('something broke')
 }))
 
 // no route handler
 // @ts-ignore
 app.use((req, res: Response) => {
-    res.send404()
+  res.send404()
 })
 
 // error page handler
 // @ts-ignore
 app.use(async (err, req, res, _) => {
-    if (debugEnabled) {
-        debug('an error occurred:', err.stack || err)
-    }
-    res.status(err.status || 500).send({ error: 'unknown' })
+  if (debugEnabled) {
+    debug('an error occurred:', err.stack || err)
+  }
+  res.status(err.status || 500).send({ error: 'unknown' })
 })
 
 process.on('unhandledRejection', reason => {
-    debug('Unhandled promise rejection', reason)
+  debug('Unhandled promise rejection', reason)
 })

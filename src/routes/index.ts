@@ -12,5 +12,5 @@ router.use('/punishments', punishmentsRouter)
 router.use('/api', apiRouter)
 
 router.get('/', w((req, res) => {
-    res.send("Hello World?")
+  res.send("Hello World?")
 }))
