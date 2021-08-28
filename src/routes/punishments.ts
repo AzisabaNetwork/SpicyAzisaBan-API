@@ -2,7 +2,7 @@ import express from 'express'
 export const router = express.Router()
 import {
   getProofsByBanId,
-  getUnpunishesByPunishId, getUser, processTime, uuidToUsername,
+  getUnpunishesByPunishId, getUser, uuidToUsername,
   validateAndGetSession,
   w,
 } from '../util/util'
@@ -57,8 +57,6 @@ router.post('/update', w(async (req, res) => {
   let end = parseInt(req.body.end)
   if (isNaN(end)) return res.send400()
   if (end <= 0) end = -1
-  const start = (await sql.findOne('SELECT `start` FROM `punishmentHistory` WHERE `id` = ?', id) as Punishment).start
-  end += start
   const unpunishReason = req.body.unpunish_reason ? String(req.body.unpunish_reason) : null
   const proofs = (req.body.proofs || []) as Array<{ id: number, value: string }>
   const session = validateAndGetSession(req)
