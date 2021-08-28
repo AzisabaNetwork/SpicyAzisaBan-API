@@ -17,6 +17,7 @@ declare type Unpunish = {
   reason: string
   timestamp: number
   operator: string // uuid
+  operator_name?: string
 }
 
 declare type ServerGroup = {
@@ -30,12 +31,15 @@ declare type Punishment = {
   target: string // player uuid
   reason: string
   operator: string // operator uuid
+  operator_name?: string
   type: PunishmentType
   start: number
   end: number
   server: string
   extra: string
   unpunished?: boolean
+  unpunish?: Unpunish | null
+  proofs?: Array<Proof>
 }
 
 declare type User = {

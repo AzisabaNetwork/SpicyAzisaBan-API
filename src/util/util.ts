@@ -135,6 +135,7 @@ export const w = (fn: (req: Request, res: Response, next: NextFunction) => void 
 }
 
 export const uuidToUsername = async (uuid: string): Promise<string> => {
+  if (uuid === '00000000-0000-0000-0000-000000000000') return 'CONSOLE'
   uuid = stringify(parse(uuid)) // normalize uuid
   return (await sql.findOne('SELECT `name` FROM `players` WHERE `uuid` = ?', uuid) as { name: string }).name
 }

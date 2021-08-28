@@ -1,7 +1,8 @@
 import express from 'express'
 export const router = express.Router()
 import {
-  getUnpunishesByPunishId,
+  getProofsByBanId,
+  getUnpunishesByPunishId, uuidToUsername,
   validateAndGetSession,
   w,
 } from '../util/util'
@@ -20,5 +21,22 @@ router.get('/list', w(async (req, res) => {
   res.send({
     data: punishments,
     hasNext: punishments.length == 25,
+  })
+}))
+
+router.get('/get/:id', w(async (req, res) => {
+  const session = validateAndGetSession(req)
+  if (!session) return res.send403()
+  const id = parseInt(req.params.id) || 0
+  if (isNaN(id)) return res.send400()
+  const punishment = await sql.findOne('SELECT * FROM `punishmentHistory` WHERE `id` = ? LIMIT 1', id) as Punishment
+  const unpunish = await sql.findOne('SELECT * FROM `unpunish` WHERE `punish_id` = ? LIMIT 1', id) as Unpunish | null
+  if (unpunish) unpunish.operator_name = await uuidToUsername(unpunish.operator)
+  punishment.unpunished = !!unpunish
+  punishment.unpunish = unpunish
+  punishment.operator_name = await uuidToUsername(punishment.operator)
+  punishment.proofs = await getProofsByBanId(punishment.id)
+  res.send({
+    data: punishment,
   })
 }))

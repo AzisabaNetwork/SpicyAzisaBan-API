@@ -31,6 +31,7 @@ app.set('view engine', 'ejs')
 
 // @ts-ignore
 app.use((req: Request, res: Response, next) => {
+  res.send400 = () => res.status(400).send({ error: 'bad_request' })
   res.send401 = () => res.status(401).send({ error: 'unauthorized' })
   res.send403 = () => res.status(403).send({ error: 'forbidden' })
   res.send404 = () => res.status(404).send({ error: 'not_found' })
