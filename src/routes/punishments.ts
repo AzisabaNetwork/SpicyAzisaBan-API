@@ -14,7 +14,7 @@ router.get('/list', w(async (req, res) => {
   let page = parseInt(req.query?.page) || 0
   if (isNaN(page)) page = 0
   page = Math.max(0, page)
-  const punishments = await sql.findAll('SELECT * FROM `punishmentHistory` ORDER BY `start` DESC LIMIT ?, 25', page) as Punishment[]
+  const punishments = await sql.findAll('SELECT * FROM `punishmentHistory` ORDER BY `start` DESC LIMIT ?, 25', page * 25) as Punishment[]
   const unpunishes = (await getUnpunishesByPunishId(...punishments.map(p => p.id))).map(u => u.punish_id)
   punishments.forEach(p => p.unpunished = unpunishes.includes(p.id))
   res.send({
