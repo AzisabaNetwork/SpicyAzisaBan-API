@@ -2,7 +2,7 @@ import express from 'express'
 export const router = express.Router()
 import {
   getProofsByBanId,
-  getUnpunishesByPunishId, getUser, uuidToUsername,
+  getUnpunishesByPunishId, getUser, processTime, uuidToUsername,
   validateAndGetSession,
   w,
 } from '../util/util'
@@ -45,6 +45,7 @@ router.post('/update', w(async (req, res) => {
   // request:
   // - id: number - punishment id
   // - reason: string
+  // - end: number
   // - server?: string - ignored in normal user
   // - unpunish_reason?: string
   // - proofs: Array<{ id: number, value: string }>
@@ -53,6 +54,17 @@ router.post('/update', w(async (req, res) => {
   if (isNaN(id) || id <= 0) return res.send400()
   const reason = String(req.body.reason)
   if (!reason || !req.body.reason) return res.send400()
+  let end = /^\d+$/.test(String(req.body.end)) ? parseInt(req.body.end) : NaN
+  if (end <= 0) end = -1
+  if (isNaN(end)) {
+    try {
+      end = processTime(String(req.body.end))
+    } catch (e) {
+      return res.send400()
+    }
+  }
+  const start = (await sql.findOne('SELECT `start` FROM `punishmentHistory` WHERE `id` = ?', id) as Punishment).start
+  end += start
   const unpunishReason = req.body.unpunish_reason ? String(req.body.unpunish_reason) : null
   const proofs = (req.body.proofs || []) as Array<{ id: number, value: string }>
   const session = validateAndGetSession(req)
@@ -62,11 +74,11 @@ router.post('/update', w(async (req, res) => {
   if (user.group === 'manager' || user.group === 'admin') {
     const server = String(req.body.server)
     if (!server || !req.body.server) return res.send400()
-    await sql.execute('UPDATE `punishmentHistory` SET `reason` = ?, `server` = ? WHERE `id` = ? LIMIT 1', reason, server, id)
-    await sql.execute('UPDATE `punishments` SET `reason` = ?, `server` = ? WHERE `id` = ? LIMIT 1', reason, server, id)
+    await sql.execute('UPDATE `punishmentHistory` SET `reason` = ?, `server` = ?, `end` = ? WHERE `id` = ? LIMIT 1', reason, server, end, id)
+    await sql.execute('UPDATE `punishments` SET `reason` = ?, `server` = ?, `end` = ? WHERE `id` = ? LIMIT 1', reason, server, end, id)
   } else {
-    await sql.execute('UPDATE `punishmentHistory` SET `reason` = ? WHERE `id` = ? LIMIT 1', reason, id)
-    await sql.execute('UPDATE `punishments` SET `reason` = ? WHERE `id` = ? LIMIT 1', reason, id)
+    await sql.execute('UPDATE `punishmentHistory` SET `reason` = ?, `end` = ? WHERE `id` = ? LIMIT 1', reason, end, id)
+    await sql.execute('UPDATE `punishments` SET `reason` = ?, `end` = ? WHERE `id` = ? LIMIT 1', reason, end, id)
   }
   for (let proof of proofs) {
     await sql.execute('UPDATE `proofs` SET `text` = ? WHERE `id` = ? AND `punish_id` = ? LIMIT 1', proof.value.substring(0, Math.min(proof.value.length, 255)), proof.id, id)

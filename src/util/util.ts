@@ -3,6 +3,7 @@ import * as sql from './sql'
 import * as totp from './totp'
 import express, { NextFunction } from 'express'
 import { parse, stringify } from 'uuid'
+import {StringReader} from './stringReader'
 
 export const sessions: SessionTable = {}
 
@@ -200,4 +201,42 @@ export const getPlayersByUUID = async (...uuids: string[]): Promise<Array<Player
 export const getPlayersByName = async (...names: string[]): Promise<Array<Player>> => {
   const where = names.length > 0 ? ' WHERE name=' + names.map(() => '?').join(' OR name=') : ''
   return await sql.findAll('SELECT * FROM `players`' + where, ...names)
+}
+
+export const processTime = (s: string): number => {
+  let time = 0
+  let rawNumber = ""
+  const reader = new StringReader(s)
+  while (!reader.isEOF()) {
+    const c = reader.peek()
+    reader.skip()
+    if (c >= '0' && c <= '9') {
+      rawNumber += c
+    } else {
+      if (rawNumber.length === 0) throw Error("Unexpected non-digit character: '$c' at index ${reader.index}")
+      // mo
+      if (c == 'm' && !reader.isEOF() && reader.peek() == 'o') {
+        reader.skip()
+        time += (1000 * 60 * 60 * 24 * 30) * parseInt(rawNumber)
+        rawNumber = ""
+        continue
+      }
+      // y(ear), d(ay), h(our), m(inute), s(econd)
+      if (c === 'y') {
+        time += (1000 * 60 * 60 * 24 * 365) * parseInt(rawNumber)
+      } else if (c === 'd') {
+        time += (1000 * 60 * 60 * 24) * parseInt(rawNumber)
+      } else if (c === 'h') {
+        time += (1000 * 60 * 60) * parseInt(rawNumber)
+      } else if (c === 'm') {
+        time += (1000 * 60) * parseInt(rawNumber)
+      } else if (c === 's') {
+        time += 1000 * parseInt(rawNumber)
+      } else {
+        throw Error(`Unexpected character: '${c}' at index ${reader.index}`)
+      }
+      rawNumber = ""
+    }
+  }
+  return time
 }
