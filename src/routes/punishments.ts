@@ -54,15 +54,9 @@ router.post('/update', w(async (req, res) => {
   if (isNaN(id) || id <= 0) return res.send400()
   const reason = String(req.body.reason)
   if (!reason || !req.body.reason) return res.send400()
-  let end = /^\d+$/.test(String(req.body.end)) ? parseInt(req.body.end) : NaN
+  let end = parseInt(req.body.end)
+  if (isNaN(end)) return res.send400()
   if (end <= 0) end = -1
-  if (isNaN(end)) {
-    try {
-      end = processTime(String(req.body.end))
-    } catch (e) {
-      return res.send400()
-    }
-  }
   const start = (await sql.findOne('SELECT `start` FROM `punishmentHistory` WHERE `id` = ?', id) as Punishment).start
   end += start
   const unpunishReason = req.body.unpunish_reason ? String(req.body.unpunish_reason) : null
