@@ -2,7 +2,7 @@ import express from 'express'
 export const router = express.Router()
 import {
   getProofsByBanId,
-  getUnpunishesByPunishId, uuidToUsername,
+  getUnpunishesByPunishId, getUser, uuidToUsername,
   validateAndGetSession,
   w,
 } from '../util/util'
@@ -39,4 +39,38 @@ router.get('/get/:id', w(async (req, res) => {
   res.send({
     data: punishment,
   })
+}))
+
+router.post('/update', w(async (req, res) => {
+  // request:
+  // - id: number - punishment id
+  // - reason: string
+  // - server?: string - ignored in normal user
+  // - unpunish_reason?: string
+  // - proofs: Array<{ id: number, value: string }>
+  if (!req.body || typeof req.body !== 'object') return res.status(400).send({ error: 'invalid_params' })
+  const id = parseInt(req.body.id)
+  if (isNaN(id) || id <= 0) return res.send400()
+  const reason = String(req.body.reason)
+  if (!reason || !req.body.reason) return res.send400()
+  const unpunishReason = req.body.unpunish_reason ? String(req.body.unpunish_reason) : null
+  const proofs = (req.body.proofs || []) as Array<{ id: number, value: string }>
+  const session = validateAndGetSession(req)
+  if (!session) return res.send403()
+  const user = await getUser(session.user_id)
+  if (!user) return res.send403()
+  if (user.group === 'manager' || user.group === 'admin') {
+    const server = String(req.body.server)
+    if (!server || !req.body.server) return res.send400()
+    await sql.execute('UPDATE `punishmentHistory` SET `reason` = ?, `server` = ? WHERE `id` = ? LIMIT 1', reason, server, id)
+    await sql.execute('UPDATE `punishments` SET `reason` = ?, `server` = ? WHERE `id` = ? LIMIT 1', reason, server, id)
+  } else {
+    await sql.execute('UPDATE `punishmentHistory` SET `reason` = ? WHERE `id` = ? LIMIT 1', reason, id)
+    await sql.execute('UPDATE `punishments` SET `reason` = ? WHERE `id` = ? LIMIT 1', reason, id)
+  }
+  for (let proof of proofs) {
+    await sql.execute('UPDATE `proofs` SET `text` = ? WHERE `id` = ? AND `punish_id` = ? LIMIT 1', proof.value.substring(0, Math.min(proof.value.length, 255)), proof.id, id)
+  }
+  if (unpunishReason) await sql.execute('UPDATE `unpunish` SET `reason` = ? WHERE `punish_id` = ? LIMIT 1', unpunishReason, id)
+  res.send({ message: 'ok' })
 }))
