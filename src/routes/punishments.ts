@@ -20,7 +20,7 @@ router.get('/list', w(async (req, res) => {
   punishments.forEach(p => p.unpunished = unpunishes.includes(p.id))
   res.send({
     data: punishments,
-    hasNext: punishments.length == 25,
+    hasNext: punishments.length == 25, // returns true even if size of punishmentHistory % 25 == 0? i don't care for now.
   })
 }))
 
@@ -76,5 +76,6 @@ router.post('/update', w(async (req, res) => {
     await sql.execute('UPDATE `proofs` SET `text` = ? WHERE `id` = ? AND `punish_id` = ? LIMIT 1', proof.value.substring(0, Math.min(proof.value.length, 255)), proof.id, id)
   }
   if (unpunishReason) await sql.execute('UPDATE `unpunish` SET `reason` = ? WHERE `punish_id` = ? LIMIT 1', unpunishReason, id)
+  await sql.execute('INSERT INTO `events` (`event_id`, `data`, `seen`) VALUES ("updated_punishment", ?, "")', JSON.stringify({ id }))
   res.send({ message: 'ok' })
 }))
