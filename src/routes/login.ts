@@ -84,7 +84,7 @@ router.post('/register', w(async (req, res) => {
       ip: getIPAddress(req),
       pending: true,
     }
-    const url = `${process.env.APP_URL}/register/${state}`
+    const url = `${process.env.APP_URL}/register?state=${state}`
     // TODO: don't use english
     queueEmail(`SpicyAzisaBan <${process.env.MAIL_FROM}>`, email, 'Account Verification', undefined, `Hello,<br />
 <br />
