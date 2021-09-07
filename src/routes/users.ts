@@ -32,11 +32,11 @@ router.post('/changename', w(async (req, res) => {
   let state = String(req.body.state)
   let session = validateAndGetSession(req)
   if (session) state = getSessionKey(req) || ''
-  if (!session && !state) return res.status(400).send({ error: 'invalid_params' })
+  if (!session && !state) return res.status(401).send({ error: 'unauthorized' })
   if (!session) session = sessions[state]
-  if (!session) return res.status(400).send({ error: 'invalid_params' })
+  if (!session) return res.status(401).send({ error: 'unauthorized' })
   const user_id = parseInt(req.body.user_id)
-  if (user_id <= 0 || user_id !== user_id || session.user_id !== user_id) return res.status(400).send({ error: 'invalid_params' })
+  if (user_id <= 0 || user_id !== user_id || session.user_id !== user_id) return res.status(403).send({ error: 'invalid_user' })
   const username = String(req.body.username)
   if (!isValidName(username)) return res.status(400).send({ error: 'invalid' })
   await sql.execute('UPDATE `users` SET `last_update` = now() WHERE `id` = ?', user_id)
