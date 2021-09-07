@@ -58,7 +58,7 @@ router.post('/update', w(async (req, res) => {
   if (isNaN(end)) return res.send400()
   if (end <= 0) end = -1
   const unpunishReason = req.body.unpunish_reason ? String(req.body.unpunish_reason) : null
-  const proofs = (req.body.proofs || []) as Array<{ id: number, value: string | null }>
+  const proofs = (req.body.proofs || []) as Array<{ id: number, value: string }>
   const session = validateAndGetSession(req)
   if (!session) return res.send403()
   const user = await getUser(session.user_id)
@@ -73,17 +73,20 @@ router.post('/update', w(async (req, res) => {
     await sql.execute('UPDATE `punishments` SET `reason` = ?, `end` = ? WHERE `id` = ? LIMIT 1', reason, end, id)
   }
   const newProofs = new Array<{ id: number, value: string }>()
-  for (let proof of proofs) {
-    if (proof.value !== null && proof.id > 0) {
+  const currentProofs = await getProofsByBanId(id)
+  for (const proof of currentProofs) {
+    if (!proofs.find(p => p.id === proof.id)) {
+      await sql.execute('DELETE FROM `proofs` WHERE `id` = ? AND `punish_id` = ? LIMIT 1', proof.id, id)
+    }
+  }
+  for (const proof of proofs) {
+    if (proof.value && proof.id > 0) {
       await sql.execute('UPDATE `proofs` SET `text` = ? WHERE `id` = ? AND `punish_id` = ? LIMIT 1', proof.value.toString().substring(0, Math.min(proof.value.toString().length, 255)), proof.id, id)
       newProofs.push({ id: proof.id, value: proof.value.toString() })
     }
-    if (proof.value !== null && proof.id === -1) {
+    if (proof.value && proof.id === -1) {
       const proofId = await sql.findOne('INSERT INTO `proofs` (`id`, `punish_id`, `text`) VALUES (NULL, ?, ?)', id, proof.value.toString())
       newProofs.push({ id: proofId, value: proof.value.toString() })
-    }
-    if (proof.value === null && proof.id > 0) {
-      await sql.execute('DELETE FROM `proofs` WHERE `id` = ? AND `punish_id` = ? LIMIT 1', proof.id, id)
     }
   }
   if (unpunishReason) await sql.execute('UPDATE `unpunish` SET `reason` = ? WHERE `punish_id` = ? LIMIT 1', unpunishReason, id)
