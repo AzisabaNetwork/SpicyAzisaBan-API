@@ -30,12 +30,14 @@ router.get('/get/:id', w(async (req, res) => {
   const id = parseInt(req.params.id) || 0
   if (isNaN(id)) return res.send400()
   const punishment = await sql.findOne('SELECT * FROM `punishmentHistory` WHERE `id` = ? LIMIT 1', id) as Punishment
+  const activePunishment = await sql.findOne('SELECT `id` FROM `punishments` WHERE `id` = ? LIMIT 1', id) as { id: number }
   const unpunish = await sql.findOne('SELECT * FROM `unpunish` WHERE `punish_id` = ? LIMIT 1', id) as Unpunish | null
   if (unpunish) unpunish.operator_name = await uuidToUsername(unpunish.operator)
   punishment.unpunished = !!unpunish
   punishment.unpunish = unpunish
   punishment.operator_name = await uuidToUsername(punishment.operator)
   punishment.proofs = await getProofsByBanId(punishment.id)
+  punishment.active = !!activePunishment
   res.send({
     data: punishment,
   })

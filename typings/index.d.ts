@@ -40,6 +40,7 @@ declare type Punishment = {
   unpunished?: boolean
   unpunish?: Unpunish | null
   proofs?: Array<Proof>
+  active?: boolean
 }
 
 declare type User = {
