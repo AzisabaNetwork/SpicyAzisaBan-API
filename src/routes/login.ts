@@ -85,14 +85,13 @@ router.post('/register', w(async (req, res) => {
       pending: true,
     }
     const url = `${process.env.APP_URL}/register?state=${state}`
-    // TODO: don't use english
-    queueEmail(`SpicyAzisaBan <${process.env.MAIL_FROM}>`, email, 'Account Verification', undefined, `Hello,<br />
+    queueEmail(`SpicyAzisaBan <${process.env.MAIL_FROM}>`, email, 'アカウント認証', undefined, `Hello,<br />
 <br />
-You have requested to create the account on SpicyAzisaBan, and waiting for your confirmation.<br />
-Please click the link below to complete the verification and proceed to account creation.<br />
+SpicyAzisaBanのウェブサイトでアカウントデータを作成しました。<br />
+下記のリンクをクリックして認証を完了してアカウントの作成を完了させてください。
 <a href='${url}'>${url}</a><br />
 <br />
-If you did not request this, please ignore this mail.
+アカウント作成をリクエストしていない場合は、このメールを無視してください。
 `)
     debug(`Verification email queued for ${user_id} to ${email}: ${url}`)
     res.send({ message: 'ok' })
