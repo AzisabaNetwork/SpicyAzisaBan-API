@@ -53,7 +53,8 @@ router.post('/changename', w(async (req, res) => {
 router.post('/changepassword', w(async (req, res) => {
   // request:
   // - user_id: number
-  // - password: string
+  // - currentPassword: string
+  // - newPassword: string
   // response:
   // - message: 'ok'
   const session = validateAndGetSession(req)
@@ -64,9 +65,9 @@ router.post('/changepassword', w(async (req, res) => {
   const currentPassword = String(req.body.currentPassword)
   const newPassword = String(req.body.newPassword)
   if (!currentPassword || !newPassword) return res.status(400)
+  if (newPassword.length < 7) return res.status(400).send({ error: 'invalid' })
   const user = await sql.findOne('SELECT `password` FROM `users` WHERE `id` = ?', user_id)
   if (!await crypt.compare(currentPassword, user.password)) return res.status(400).send({ error: 'incorrect_password' })
-  if (newPassword.length < 7) return res.status(400).send({ error: 'invalid' })
   await sql.execute('UPDATE `users` SET `password` = ? WHERE `id` = ?', await crypt.hash(newPassword), user_id)
   res.send({ message: 'ok' })
 }))
