@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 let goodSaltRounds = -1
 
 /**
- * Get salt rounds to hash that can be hashed within 1.5 seconds.
+ * Get salt rounds to hash that can be hashed within a second.
  * @returns "good" salt rounds
  */
 export const getGoodSaltRounds = async (): Promise<number> => {
@@ -13,7 +13,7 @@ export const getGoodSaltRounds = async (): Promise<number> => {
     const start = Date.now()
     await bcrypt.hash('test', i++)
     const end = Date.now()
-    if (end - start > 1500) break
+    if (end - start > 1000) break
   }
   return goodSaltRounds = i - 1
 }
