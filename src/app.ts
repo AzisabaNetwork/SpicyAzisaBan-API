@@ -10,7 +10,6 @@ import * as crypt from './util/crypt'
 const debugEnabled = process.env.NODE_ENV === 'development'
 const debug = require('debug')('spicyazisaban:app')
 const cors = require('cors')
-//const csrf = require('csurf')
 
 sql.init()
   .then(async () => {
@@ -55,18 +54,23 @@ app.use(logger('dev', {
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
 app.use(cookieParser())
-app.use(cors({ origin: process.env.APP_URL }))
+app.use(cors({
+  origin: (origin: string, callback: (err: Error | null, result?: boolean) => void) => {
+    if (origin === process.env.APP_URL) return callback(null, true)
+    if (process.env.ADDITIONAL_CORS?.split(',')?.find(s => origin.endsWith(s))) return callback(null, true)
+    callback(new Error('Not allowed by CORS'))
+  },
+}))
 //app.use(express.static('./public'))
 
 /*
 app.use(csrf({ cookie: true }))
 
-// @ts-ignore
-app.all('*', function (req: Request, res: Response, next) {
-    res.cookie('XSRF-TOKEN', req.csrfToken())
+*/
+app.all('*', function (req, res, next) {
+    res.setHeader('Vary', 'Origin')
     next()
 })
-*/
 
 // restrict access for /admin routes
 // @ts-ignore
