@@ -140,3 +140,46 @@ router.post('/disable_2fa', w(async (req, res) => {
   await sql.execute('DELETE FROM `users_2fa_recovery_codes` WHERE `user_id` = ?', session.user_id)
   res.send({ message: 'ok' })
 }))
+
+router.post('/link_account', w(async (req, res) => {
+  // the request would be 200 if:
+  // - not linked yet
+  // - account link in progress (regenerates link_code and return them)
+  // response (if success):
+  // - link_code: string
+  // response (if already linked):
+  // - error: 'already_linked'
+  const session = validateAndGetSession(req)
+  if (!session) return res.send401()
+  const linkedUUIDResponse = await sql.findOne('SELECT `linked_uuid` FROM `users_linked_accounts` WHERE `user_id` = ?', session.user_id)
+  if (linkedUUIDResponse && linkedUUIDResponse.linked_uuid) {
+    return res.status(400).send({ error: 'already_linked' })
+  }
+  // delete if already exists
+  await sql.execute('DELETE FROM `users_linked_accounts` WHERE `user_id` = ?', session.user_id)
+  // generate code, check for duplicate, and re-roll if needed
+  let code: string
+  while (true) {
+    code = await generateSecureRandomString(5)
+    if (!await sql.findOne('SELECT `link_code` FROM `users_linked_accounts` WHERE `link_code` = ?', code)) {
+      break
+    }
+  }
+  // add record
+  await sql.execute('INSERT INTO `users_linked_accounts` (`user_id`, `link_code`) VALUES (?, ?)', session.user_id, code)
+  setTimeout(() => {
+    sql.execute('DELETE FROM `users_linked_accounts` WHERE `expire` != 0 AND `link_code` = ?', code)
+  }, 1000 * 60 * 10)
+  res.send({ link_code: code })
+}))
+
+router.post('/unlink_account', w(async (req, res) => {
+  // request:
+  // - user_id: number
+  // response (always):
+  // - message: 'ok'
+  const session = validateAndGetSession(req)
+  if (!session) return res.send401()
+  await sql.execute('DELETE FROM `users_linked_accounts` WHERE `user_id` = ?', session.user_id)
+  res.send({ message: 'ok' })
+}))

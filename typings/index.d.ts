@@ -49,6 +49,9 @@ declare type User = {
   email?: string
   group: string
   last_update: Date
+  linked_uuid?: string | null
+  // might be null even if linked_uuid is present
+  linked_name?: string | null
 }
 
 declare type PunishmentType =

@@ -125,7 +125,14 @@ router.get('/me', w(async (req, res) => {
     return res.send401()
   }
   */
+  const linkedUUIDResponse = await sql.findOne('SELECT `linked_uuid` FROM `users_linked_accounts` WHERE `user_id` = ?', user.id)
+  // find name of uuid only if linked_uuid is present, null if linked_uuid is not present
+  const linkedNameResponse = linkedUUIDResponse?.linked_uuid
+    ? await sql.findOne('SELECT `name` FROM `players` WHERE `uuid` = ?', linkedUUIDResponse?.linked_uuid)
+    : null
   const mfa = await sql.findOne('SELECT `user_id` FROM `users_2fa` WHERE `user_id` = ?', user.id)
+  user.linked_uuid = linkedUUIDResponse?.linked_uuid || null
+  user.linked_name = linkedNameResponse?.name || null
   user.mfa_enabled = !!mfa
   res.send(user)
 }))

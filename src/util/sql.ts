@@ -121,6 +121,19 @@ export const init = async () =>
         debug('Created users_2fa_recovery_codes table')
       }
     })
+    await findOne('SHOW TABLES LIKE "users_linked_accounts"').then(async res => {
+      if (!res) {
+        debug('Creating users_linked_accounts table')
+        await execute(`CREATE TABLE users_linked_accounts (
+  \`user_id\` int unsigned NOT NULL UNIQUE,
+  \`link_code\` varchar(10) DEFAULT NULL,
+  \`expire\` bigint NOT NULL DEFAULT 0,
+  \`linked_uuid\` varchar(36) DEFAULT NULL,
+  PRIMARY KEY (\`user_id\`)
+)`)
+        debug('Created users_linked_accounts table')
+      }
+    })
   }).catch(e => {
     console.error('Your mysql configuration is foobar, pls fix')
     console.error(e.stack || e)

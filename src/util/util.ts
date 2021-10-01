@@ -6,9 +6,9 @@ import { parse, stringify } from 'uuid'
 
 export const sessions: SessionTable = {}
 
-export const generateSecureRandomString = (length: number): Promise<string> => {
+export const generateSecureRandomString = (lengthDividedBy2: number): Promise<string> => {
   return new Promise((resolve, reject) => {
-    crypto.randomBytes(length, function(err, buffer) {
+    crypto.randomBytes(lengthDividedBy2, function(err, buffer) {
       if (err) {
         reject(err)
       } else {

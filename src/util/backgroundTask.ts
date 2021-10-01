@@ -88,15 +88,15 @@ export const queueRandom = (task: Task) => {
   return awaitTask(task, randomTasks)
 }
 
-export const queueEmail = (from: string, to: string, subject: string, text?: string, html?: string) => {
+export const queueEmail = (from: string, to: string, subject: string, text?: string, html?: string, driverName: string = process.env.MAIL_DRIVER!) => {
   let driver: mailDriver
-  if (process.env.MAIL_DRIVER === 'log') {
+  if (driverName === 'log') {
     driver = new LogDriver()
-  } else if (process.env.MAIL_DRIVER === 'smtp') {
+  } else if (driverName === 'smtp') {
     driver = new SMTPDriver();
     (driver as SMTPDriver).init()
   } else {
-    debug(`Warning: Invalid mail driver: ${process.env.MAIL_DRIVER}, valid types are: log, smtp`)
+    debug(`Warning: Invalid mail driver: ${driverName}, valid types are: log, smtp`)
     debug('Warning: Defaulting to log driver')
     driver = new LogDriver()
   }
