@@ -182,6 +182,11 @@ export const getUnpunishesByPunishId = async (...banIds: number[]): Promise<Arra
   return await sql.findAll('SELECT * FROM `unpunish`' + where)
 }
 
+export const getPunishmentsByPunishId = async (...banIds: number[]): Promise<Array<Punishment>> => {
+  const where = banIds.length > 0 ? ' WHERE id=' + banIds.join(' OR id=') : ''
+  return await sql.findAll('SELECT * FROM `punishments`' + where)
+}
+
 export const getProofsByBanId = async (...banIds: number[]): Promise<Array<Proof>> => {
   const where = banIds.length > 0 ? ' WHERE punish_id=' + banIds.join(' OR punish_id=') : ''
   return await sql.findAll('SELECT * FROM `proofs`' + where)

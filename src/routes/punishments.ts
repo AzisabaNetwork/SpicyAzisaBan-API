@@ -1,7 +1,7 @@
 import express from 'express'
 export const router = express.Router()
 import {
-  getProofsByBanId,
+  getProofsByBanId, getPunishmentsByPunishId,
   getUnpunishesByPunishId, getUser, uuidToUsername,
   validateAndGetSession,
   w,
@@ -16,8 +16,10 @@ router.get('/list', w(async (req, res) => {
   if (isNaN(page)) page = 0
   page = Math.max(0, page)
   const punishments = await sql.findAll('SELECT * FROM `punishmentHistory` ORDER BY `start` DESC LIMIT ?, 25', page * 25) as Punishment[]
+  const activePunishments = (await getPunishmentsByPunishId(...punishments.map(p => p.id))).map(u => u.id)
   const unpunishes = (await getUnpunishesByPunishId(...punishments.map(p => p.id))).map(u => u.punish_id)
   punishments.forEach(p => p.unpunished = unpunishes.includes(p.id))
+  punishments.forEach(p => p.active = activePunishments.includes(p.id))
   res.send({
     data: punishments,
     hasNext: punishments.length == 25, // returns true even if size of punishmentHistory % 25 == 0? i don't care for now.
