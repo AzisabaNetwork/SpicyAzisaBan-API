@@ -117,7 +117,7 @@ router.all('/logout', w((req, res) => {
 router.get('/me', w(async (req, res) => {
   const session = validateAndGetSession(req)
   if (!session) return res.send401()
-  const user = await sql.findOne("SELECT `id`, `username`,`group`, `last_update` FROM `users` WHERE `id` = ?", session.user_id)
+  const user = await sql.findOne("SELECT `id`, `username`, `group`, `last_update` FROM `users` WHERE `id` = ?", session.user_id)
   if (!user) return res.send401()
   /*
   if (user && user.banned) {

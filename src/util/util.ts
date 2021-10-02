@@ -206,3 +206,70 @@ export const getPlayersByName = async (...names: string[]): Promise<Array<Player
   const where = names.length > 0 ? ' WHERE name=' + names.map(() => '?').join(' OR name=') : ''
   return await sql.findAll('SELECT * FROM `players`' + where, ...names)
 }
+
+export const getPlayersByIP = async (...ips: string[]): Promise<Array<Player>> => {
+  const where = ips.length > 0 ? ' WHERE ip=' + ips.map(() => '?').join(' OR ip=') : ''
+  return await sql.findAll('SELECT * FROM `players`' + where, ...ips)
+}
+
+export const resolveToIPByTarget = async (target: string): Promise<string | null> => {
+  if (isValidIPAddress(target)) return target
+  // player name or uuid
+  const data = await sql.findOne('SELECT `ip` FROM `players` WHERE `name` = ? OR `uuid` = ?', target, target)
+  if (!data) return null
+  return data.ip
+}
+
+export const resolveToPlayerByTarget = async (target: string): Promise<Player | null> => {
+  if (isValidIPAddress(target)) return null
+  // player name or uuid
+  return (await sql.findOne('SELECT * FROM `players` WHERE `name` = ? OR `uuid` = ?', target, target)) || null
+}
+
+//<editor-fold desc="1200+ characters long IP Address Regex" defaultstate="collapsed">
+export const IP_ADDRESS_REGEX = /((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))\s*$)|(^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))/
+//</editor-fold>
+
+export const isValidIPAddress = (ip: string) => IP_ADDRESS_REGEX.test(ip)
+
+export const isValidIPv4Address = (ip: string) => {
+  const numbers = ip.split(".").map(it => parseInt(it))
+  if (numbers.length != 4) return false
+  return numbers.filter(it => it >= 0 && it <= 255)
+}
+
+export const isPunishableIP = (ip: string): boolean => {
+  if (!isValidIPAddress(ip)) throw new Error("Invalid IP address: " + ip)
+  if (!isValidIPv4Address(ip)) return true // skip IPv6 checks
+  const numbers = ip.split('.').map(it => parseInt(it, 10))
+  // Reserved IP addresses
+  // 0.0.0.0/8 (0.0.0.0 - 0.255.255.255)
+  if (numbers[0] == 0) return false
+  // 10.0.0.0/8 (10.0.0.0 - 10.255.255.255)
+  if (numbers[0] == 10) return false
+  // 100.64.0.0/10 (100.64.0.0 - 100.127.255.255)
+  if (numbers[0] == 100 && numbers[1] >= 64 && numbers[1] <= 127) return false
+  // 127.0.0.0/8 (127.0.0.0 - 127.255.255.255)
+  if (numbers[0] == 127) return false
+  // 169.254.0.0/16 (169.254.0.0 - 169.254.255.255)
+  if (numbers[0] == 169 && numbers[1] == 254) return false
+  // 192.0.0.0/24 (192.0.0.0 - 192.0.0.255)
+  if (numbers[0] == 192 && numbers[1] == 0 && numbers[2] == 0) return false
+  // 192.0.2.0/24 (192.0.2.0 - 192.0.2.255)
+  if (numbers[0] == 192 && numbers[1] == 0 && numbers[2] == 2) return false
+  // 192.88.99.0/24 (192.88.99.0 - 192.88.99.255)
+  if (numbers[0] == 192 && numbers[1] == 88 && numbers[2] == 99) return false
+  // 192.168.0.0/16 (192.168.0.0 - 192.168.255.255)
+  if (numbers[0] == 192 && numbers[1] == 168) return false
+  // 198.18.0.0/15 (192.18.0.0 - 192.19.255.255)
+  if (numbers[0] == 198 && (numbers[1] == 18 || numbers[1] == 19)) return false
+  // 203.0.133.0/24 (203.0.133.0 - 203.0.133.255)
+  if (numbers[0] == 203 && numbers[1] == 0 && numbers[2] == 133) return false
+  // 224.0.0.0/4 (224.0.0.0 - 239.255.255.255)
+  if (numbers[0] >= 224 && numbers[0] <= 239) return false
+  // 233.252.0.0/24
+  if (numbers[0] == 233 && numbers[1] == 252 && numbers[2] == 0) return false
+  // 240.0.0.0/4 (240.0.0.0 - 255.255.255.254)
+  // 255.255.255.255/32 (255.255.255.255)
+  return numbers[0] < 240;
+}

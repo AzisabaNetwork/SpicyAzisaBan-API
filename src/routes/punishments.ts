@@ -1,13 +1,37 @@
 import express from 'express'
+
 export const router = express.Router()
 import {
-  getProofsByBanId, getPunishmentsByPunishId,
-  getUnpunishesByPunishId, getUser, uuidToUsername,
+  getProofsByBanId,
+  getPunishmentsByPunishId,
+  getUnpunishesByPunishId,
+  getUser,
+  isPunishableIP,
+  isValidIPAddress,
+  resolveToIPByTarget,
+  resolveToPlayerByTarget,
+  uuidToUsername,
   validateAndGetSession,
   w,
 } from '../util/util'
 import * as sql from '../util/sql'
+
 const debug = require('debug')('spicyazisaban:route:punishments')
+
+const validPunishmentTypes = [
+  'BAN',
+  'TEMP_BAN',
+  'IP_BAN',
+  'TEMP_IP_BAN',
+  'MUTE',
+  'TEMP_MUTE',
+  'IP_MUTE',
+  'TEMP_IP_MUTE',
+  'WARNING',
+  'CAUTION',
+  'KICK',
+  'NOTE',
+]
 
 router.get('/list', w(async (req, res) => {
   const session = validateAndGetSession(req)
@@ -95,5 +119,100 @@ router.post('/update', w(async (req, res) => {
   }
   if (unpunishReason) await sql.execute('UPDATE `unpunish` SET `reason` = ? WHERE `punish_id` = ? LIMIT 1', unpunishReason, id)
   await sql.execute('INSERT INTO `events` (`event_id`, `data`, `seen`) VALUES ("updated_punishment", ?, "")', JSON.stringify({ id }))
+  debug(`Punishment #${id} successfully updated by ${user.id}`)
   res.send({ message: 'ok', proofs: newProofs })
+}))
+
+router.post('/create', w(async (req, res) => {
+  // request:
+  // - target: string - player name, uuid, or an ip address
+  // - type: string
+  // - reason: string
+  // - start: number
+  // - end: number
+  // - server: string
+  // - all?: boolean - unsupported yet
+  // response (200):
+  // - ids: number[] - created punishment ids (may contain more than 1 element if all is true)
+  // errors:
+  // - not_linked - the actor hasn't linked a minecraft account yet
+  // - player_not_resolved - ip or player couldn't be resolved
+  // - not_punishable_ip - provided ip address cannot be banned (reserved or private)
+  // - invalid_end - invalid "end" value (NaN or end < start)
+  // - server_not_enough_permission - not enough permission to modify server to anything other than "global"
+  if (!req.body || typeof req.body !== 'object') return res.send400()
+  const target = String(req.body.target)
+  if (!target || !req.body.target) return res.send400()
+  const reason = String(req.body.reason)
+  if (!reason || !req.body.reason) return res.send400()
+  let server = String(req.body.server).toLowerCase()
+  if (!server || !req.body.server) return res.send400()
+  const start = parseInt(req.body.start)
+  if (isNaN(start)) return res.status(400).send({ error: 'invalid_start' })
+  if (start <= 0) return res.status(400).send({ error: 'invalid_start' })
+  let end = parseInt(req.body.end)
+  if (isNaN(end)) return res.status(400).send({ error: 'invalid_end' })
+  if (end <= 0) end = -1
+  if (end !== -1 && end < start) return res.status(400).send({ error: 'invalid_end' })
+  const type = String(req.body.type)
+  if (!validPunishmentTypes.includes(type)) return res.send400()
+  let name: string
+  let finalTarget: string
+  const session = validateAndGetSession(req)
+  if (!session) return res.send401()
+  if (type.includes('IP_')) {
+    if (isValidIPAddress(target) && !isPunishableIP(target)) {
+      return res.status(400).send({ error: 'not_punishable_ip' })
+    }
+    const tempTarget = await resolveToIPByTarget(target)
+    if (!tempTarget) {
+      return res.status(400).send({ error: 'player_not_resolved' })
+    }
+    name = finalTarget = tempTarget
+  } else {
+    if (isValidIPAddress(target)) {
+      return res.status(400).send({ error: 'player_not_resolved' })
+    }
+    const player = await resolveToPlayerByTarget(target)
+    if (!player) {
+      return res.status(400).send({ error: 'player_not_resolved' })
+    }
+    name = player.name
+    finalTarget = player.uuid
+  }
+  const user = await sql.findOne('SELECT `group` FROM `users` WHERE `id` = ?', session.user_id)
+  if (server !== 'global' && user?.group !== 'manager' && user?.group !== 'admin') {
+    return res.status(400).send({ error: 'server_not_enough_permission' })
+  }
+  const linkedUUIDResponse = await sql.findOne('SELECT `linked_uuid` FROM `users_linked_accounts` WHERE `user_id` = ?', session.user_id)
+  const operator = linkedUUIDResponse ? linkedUUIDResponse['linked_uuid'] : null
+  if (!operator) return res.status(400).send({ error: 'not_linked' })
+  const id = await sql.findOne(
+    'INSERT INTO `punishmentHistory` (`name`, `target`, `reason`, `operator`, `type`, `start`, `end`, `server`, `extra`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    name,
+    finalTarget,
+    reason,
+    operator,
+    type,
+    start,
+    end,
+    server,
+    '',
+  )
+  await sql.execute(
+    'INSERT INTO `punishments` (`id`, `name`, `target`, `reason`, `operator`, `type`, `start`, `end`, `server`, `extra`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    id,
+    name,
+    finalTarget,
+    reason,
+    operator,
+    type,
+    start,
+    end,
+    server,
+    '',
+  )
+  await sql.execute('INSERT INTO `events` (`event_id`, `data`, `seen`) VALUES ("add_punishment", ?, "")', JSON.stringify({ id }))
+  debug(`Punishment #${id} successfully created by ${session.user_id}`)
+  res.send({ ids: [ id ] })
 }))
