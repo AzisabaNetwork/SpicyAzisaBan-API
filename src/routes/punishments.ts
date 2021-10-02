@@ -68,7 +68,7 @@ router.post('/update', w(async (req, res) => {
   const user = await getUser(session.user_id)
   if (!user) return res.send403()
   if (user.group === 'manager' || user.group === 'admin') {
-    const server = String(req.body.server)
+    const server = String(req.body.server).toLowerCase()
     if (!server || !req.body.server) return res.send400()
     await sql.execute('UPDATE `punishmentHistory` SET `reason` = ?, `server` = ?, `end` = ? WHERE `id` = ? LIMIT 1', reason, server, end, id)
     await sql.execute('UPDATE `punishments` SET `reason` = ?, `server` = ?, `end` = ? WHERE `id` = ? LIMIT 1', reason, server, end, id)
