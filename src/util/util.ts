@@ -276,3 +276,10 @@ export const isPunishableIP = (ip: string): boolean => {
 
 export const sanitizeSQLABit = (sql: string) =>
   sql.replace('%', '')
+
+export const checkServerPermission = (group: string, server: string) => {
+  if (server === 'global') return true
+  if (group === 'manager' || group === 'admin') return true
+  // check server/group permission here
+  return false
+}

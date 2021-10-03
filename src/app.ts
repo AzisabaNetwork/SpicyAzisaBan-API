@@ -112,6 +112,7 @@ app.use((req, res: Response) => {
 // error page handler
 // @ts-ignore
 app.use(async (err, req, res, _) => {
+  if (err.message === 'Not allowed by CORS') return res.status(403).send({ error: 'forbidden' })
   if (debugEnabled) {
     debug('an error occurred:', err.stack || err)
   }

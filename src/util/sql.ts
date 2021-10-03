@@ -1,4 +1,4 @@
-const debug = require('debug')('spicyazisaban:mysql')
+const debug = require('debug')('spicyazisaban:sql')
 import mysql, { Connection, FieldInfo } from 'mysql'
 const pool = mysql.createPool({
   connectionLimit: 10,

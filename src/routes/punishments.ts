@@ -2,6 +2,7 @@ import express from 'express'
 
 export const router = express.Router()
 import {
+  checkServerPermission,
   getProofsByBanId,
   getPunishmentsByPunishId,
   getUnpunishesByPunishId,
@@ -91,6 +92,11 @@ router.post('/update', w(async (req, res) => {
   if (!session) return res.send403()
   const user = await getUser(session.user_id)
   if (!user) return res.send403()
+  const punishment = await sql.findOne('SELECT `server` FROM `punishmentHistory` WHERE `id` = ?', id)
+  if (!punishment) return res.status(404).send({ error: 'not_found' })
+  if (!checkServerPermission(user.group, punishment.server)) {
+    return res.status(403).send({ error: 'missing_permissions' })
+  }
   if (user.group === 'manager' || user.group === 'admin') {
     const server = String(req.body.server).toLowerCase()
     if (!server || !req.body.server) return res.send400()
@@ -166,16 +172,16 @@ router.post('/create', w(async (req, res) => {
     }
     const tempTarget = await resolveToIPByTarget(target)
     if (!tempTarget) {
-      return res.status(400).send({ error: 'player_not_resolved' })
+      return res.status(404).send({ error: 'player_not_resolved' })
     }
     name = finalTarget = tempTarget
   } else {
     if (isValidIPAddress(target)) {
-      return res.status(400).send({ error: 'player_not_resolved' })
+      return res.status(404).send({ error: 'player_not_resolved' })
     }
     const player = await resolveToPlayerByTarget(target)
     if (!player) {
-      return res.status(400).send({ error: 'player_not_resolved' })
+      return res.status(404).send({ error: 'player_not_resolved' })
     }
     name = player.name
     finalTarget = player.uuid
@@ -186,7 +192,7 @@ router.post('/create', w(async (req, res) => {
   }
   const linkedUUIDResponse = await sql.findOne('SELECT `linked_uuid` FROM `users_linked_accounts` WHERE `user_id` = ?', session.user_id)
   const operator = linkedUUIDResponse ? linkedUUIDResponse['linked_uuid'] : null
-  if (!operator) return res.status(400).send({ error: 'not_linked' })
+  if (!operator) return res.status(403).send({ error: 'not_linked' })
   const id = await sql.findOne(
     'INSERT INTO `punishmentHistory` (`name`, `target`, `reason`, `operator`, `type`, `start`, `end`, `server`, `extra`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     name,
@@ -215,4 +221,32 @@ router.post('/create', w(async (req, res) => {
   await sql.execute('INSERT INTO `events` (`event_id`, `data`, `seen`) VALUES ("add_punishment", ?, "")', JSON.stringify({ id }))
   debug(`Punishment #${id} successfully created by ${session.user_id}`)
   res.send({ ids: [ id ] })
+}))
+
+router.post('/unpunish', w(async (req, res) => {
+  // request:
+  // - id: number - punishment id
+  // - reason: string - unpunish reason
+  if (!req.body || typeof req.body !== 'object') return res.status(400).send({ error: 'invalid_params' })
+  const id = parseInt(req.body.id)
+  if (isNaN(id) || id <= 0) return res.send400()
+  const reason = String(req.body.reason)
+  if (!reason || !req.body.reason) return res.send400()
+  const session = validateAndGetSession(req)
+  if (!session) return res.send403()
+  const linkedUUIDResponse = await sql.findOne('SELECT `linked_uuid` FROM `users_linked_accounts` WHERE `user_id` = ?', session.user_id)
+  const operator = linkedUUIDResponse ? linkedUUIDResponse['linked_uuid'] : null
+  if (!operator) return res.status(403).send({ error: 'not_linked' })
+  const user = await getUser(session.user_id)
+  if (!user) return res.send403()
+  const punishment = await sql.findOne('SELECT `server` FROM `punishmentHistory` WHERE `id` = ?', id)
+  if (!punishment) return res.status(404).send({ error: 'not_found' })
+  if (!checkServerPermission(user.group, punishment.server)) {
+    return res.status(403).send({ error: 'missing_permissions' })
+  }
+  await sql.execute('DELETE FROM `punishments` WHERE `id` = ?', id)
+  await sql.execute('INSERT INTO `unpunish` (`punish_id`, `reason`, `timestamp`, `operator`) VALUES (?, ?, ?, ?)', id, reason, Date.now(), operator)
+  await sql.execute('INSERT INTO `events` (`event_id`, `data`, `seen`) VALUES ("removed_punishment", ?, "")', JSON.stringify({ punish_id: id }))
+  debug(`Punishment #${id} successfully unpunished by ${user.id}`)
+  res.send({ message: 'ok' })
 }))
