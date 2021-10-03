@@ -273,3 +273,6 @@ export const isPunishableIP = (ip: string): boolean => {
   // 255.255.255.255/32 (255.255.255.255)
   return numbers[0] < 240;
 }
+
+export const sanitizeSQLABit = (sql: string) =>
+  sql.replace('%', '')
