@@ -4,7 +4,7 @@ if (!process.env.DEBUG) {
 }
 import { app } from './app'
 import http from 'http'
-const debug = require('debug')('project-banned:server')
+const debug = require('debug')('spicyazisaban:server')
 
 const port = parseInt(process.env.PORT || '3000', 10)
 app.set('port', port)
