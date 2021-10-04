@@ -53,7 +53,7 @@ router.get('/list', w(async (req, res) => {
 
 router.get('/get/:id', w(async (req, res) => {
   const session = validateAndGetSession(req)
-  if (!session) return res.send403()
+  if (!session) return res.send401()
   const id = parseInt(req.params.id) || 0
   if (isNaN(id)) return res.send400()
   const punishment = await sql.findOne('SELECT * FROM `punishmentHistory` WHERE `id` = ? LIMIT 1', id) as Punishment

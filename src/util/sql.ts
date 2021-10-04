@@ -23,6 +23,9 @@ export const getConnection = /* async */ (): Promise<Connection> => {
 
 export const query = (sql: string, ...values: Array<any>): Promise<{ results: Array<any>, fields: FieldInfo[] | undefined }> => {
   return new Promise((resolve, reject) => {
+    if (sql.startsWith('SELECT * FROM `users` ') || sql.startsWith('SELECT * FROM users ')) {
+      return reject(new Error('Unsafe SQL: ' + sql))
+    }
     debug(sql, values)
     pool.query(sql, values, (error, results, fields) => {
       if (error) {
@@ -36,6 +39,9 @@ export const query = (sql: string, ...values: Array<any>): Promise<{ results: Ar
 
 export const queryWithConnection = (connection: Connection, sql: string, ...values: Array<any>): Promise<{ results: Array<any>, fields: FieldInfo[] | undefined }> => {
   return new Promise((resolve, reject) => {
+    if (sql.startsWith('SELECT * FROM `users` ') || sql.startsWith('SELECT * FROM users ')) {
+      return reject(new Error('Unsafe SQL: ' + sql))
+    }
     debug(sql, values)
     connection.query(sql, values, (error, results, fields) => {
       if (error) {

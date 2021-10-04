@@ -174,12 +174,72 @@ router.post('/link_account', w(async (req, res) => {
 }))
 
 router.post('/unlink_account', w(async (req, res) => {
-  // request:
-  // - user_id: number
   // response (always):
   // - message: 'ok'
   const session = validateAndGetSession(req)
   if (!session) return res.send401()
   await sql.execute('DELETE FROM `users_linked_accounts` WHERE `user_id` = ?', session.user_id)
+  res.send({ message: 'ok' })
+}))
+
+router.get('/get/:id', w(async (req, res) => {
+  const session = validateAndGetSession(req)
+  if (!session) return res.send401()
+  const id = parseInt(req.params.id) || 0
+  if (isNaN(id) || id <= 0) return res.send400()
+  const user = await sql.findOne('SELECT `id`, `username`, `email`, `group` FROM `users` WHERE `id` = ?', id)
+  if (!user) return res.status(404).send({ error: 'not_found' })
+  res.send(user)
+}))
+
+router.post('/update', w(async (req, res) => {
+  // note: actor must have 'admin' group to do this
+  // request:
+  // - id: number - user id
+  // - username?: string - new username of an user
+  // - email?: string - new email of an user
+  // - group?: string (user, manager, admin) - new group of an user
+  // - password?: string - new password of an user
+  // response (200):
+  // - message: 'ok'
+  // errors:
+  // - missing_permissions - actor doesn't have admin group
+  const session = validateAndGetSession(req)
+  if (!session) return res.send401()
+  if (!req.body || typeof req.body !== 'object') return res.status(400).send({ error: 'invalid_params' })
+  const id = parseInt(req.body.id)
+  if (isNaN(id) || id <= 0) return res.send400()
+  const you = await sql.findOne('SELECT `group` FROM `users` WHERE `id` = ?', session.user_id)
+  if (!you) throw new Error('Could not find an user ' + id)
+  if (you.group !== 'admin') return res.status(403).send({ error: 'missing_permissions' })
+  const sets = new Array<string>()
+  const args = new Array<any>()
+  let stop = false
+  const checkBody = async (s: string, toValueFunction: ((arg: any) => any | Promise<any>)) => {
+    if (req.body[s]) {
+      sets.push(`\`${s}\` = ?`)
+      try {
+        args.push(await toValueFunction(req.body[s]))
+      } catch (e) {
+        res.status(400).send(e.message)
+        stop = true
+      }
+    }
+  }
+  await checkBody('username', String)
+  await checkBody('email', String)
+  await checkBody('group', o => {
+    const s = String(o)
+    if (!['admin', 'manager', 'user'].includes(s)) throw new Error('invalid_group')
+    return s
+  })
+  await checkBody('password', async o => {
+    const s = String(o)
+    return await crypt.hash(s)
+  })
+  if (stop) return
+  if (sets.length > 0) {
+    await sql.execute('UPDATE `users` SET ' + sets.join(', ') + ' WHERE `id` = ?', ...args, id)
+  }
   res.send({ message: 'ok' })
 }))
