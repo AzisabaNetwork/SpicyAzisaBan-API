@@ -120,10 +120,11 @@ router.post('/enable_2fa', w(async (req, res) => {
     session.user_id,
     recoveryCodes[7],
   )
+  const totp = createNew(user.email, secretKey)
   res.send({
-    secret_key: secretKey,
+    secret_key: totp.secret,
     recovery_codes: recoveryCodes,
-    qrcode: await qrcode.toDataURL(createNew(user.email, secretKey).toString()),
+    qrcode: await qrcode.toDataURL(totp.toString()),
   })
 }))
 
