@@ -27,7 +27,7 @@ router.post('/search', w(async (req, res) => {
   }
   if (type.includes('players')) {
     data.players = await sql.findAll(
-      'SELECT `name`, `uuid`, `last_seen`, `ip` FROM `players` WHERE lower(`name`) LIKE lower(?) OR lower(`uuid`) = lower(?) OR `ip` = ?',
+      'SELECT `name`, `uuid`, `last_login`, `ip` FROM `players` WHERE lower(`name`) LIKE lower(?) OR lower(`uuid`) = lower(?) OR `ip` = ?',
       `%${sanitizeSQLABit(query)}%`,
       query,
       query,

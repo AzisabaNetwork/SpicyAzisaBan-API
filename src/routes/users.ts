@@ -146,7 +146,7 @@ router.post('/disable_2fa', w(async (req, res) => {
 router.post('/link_account', w(async (req, res) => {
   // the request would be 200 if:
   // - not linked yet
-  // - account link in progress (regenerates link_code and return them)
+  // - account link in progress (regenerates link_code)
   // response (if success):
   // - link_code: string
   // response (if already linked):
