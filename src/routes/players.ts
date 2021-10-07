@@ -45,8 +45,10 @@ router.get('/find_accounts/:uuid', w(async (req, res) => {
       .map(it => it.ip)
       .filter(noDuplicate)
       .filter(i => !ips.includes(i))
-    ips.push(...arr)
-    players.push(...(await getPlayersByIP(...arr)).filter(it => it.uuid !== uuid))
+    if (arr.length > 0) {
+      ips.push(...arr)
+      players.push(...(await getPlayersByIP(...arr)).filter(it => it.uuid !== uuid))
+    }
   }
   const newPlayers: Player[] = []
   players.forEach(p => {
