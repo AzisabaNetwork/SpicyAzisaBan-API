@@ -167,8 +167,8 @@ export const collect = (array: Array<any>, ...keys: string[]): unknown[] => {
 }
 
 export const getUsers = async (...uuids: string[]): Promise<Array<Player>> => {
-  const where = uuids.length > 0 ? ' WHERE uuid=' + uuids.join(' AND uuid=') : ''
-  return await sql.findAll('SELECT * FROM `players`' + where)
+  const where = uuids.length > 0 ? ' WHERE uuid=' + uuids.map(() => '?').join(' AND uuid=') : ''
+  return await sql.findAll('SELECT * FROM `players`' + where, ...uuids)
 }
 /*
 export const getServers = async (...servers: number[]): Promise<Array<Server>> => {
@@ -185,6 +185,16 @@ export const getUnpunishesByPunishId = async (...banIds: number[]): Promise<Arra
 export const getPunishmentsByPunishId = async (...banIds: number[]): Promise<Array<Punishment>> => {
   const where = banIds.length > 0 ? ' WHERE id=' + banIds.join(' OR id=') : ''
   return await sql.findAll('SELECT * FROM `punishments`' + where)
+}
+
+export const getPunishmentsByTarget = async (...targets: number[]): Promise<Array<Punishment>> => {
+  const where = targets.length > 0 ? ' WHERE target=' + targets.join(' OR target=') : ''
+  return await sql.findAll('SELECT * FROM `punishments`' + where)
+}
+
+export const getPunishmentHistoryByTarget = async (...targets: string[]): Promise<Array<Punishment>> => {
+  const where = targets.length > 0 ? ' WHERE target=' + targets.map(() => '?').join(' OR target=') : ''
+  return await sql.findAll('SELECT * FROM `punishmentHistory`' + where, ...targets)
 }
 
 export const getProofsByBanId = async (...banIds: number[]): Promise<Array<Proof>> => {
