@@ -39,16 +39,19 @@ router.get('/find_accounts/:uuid', w(async (req, res) => {
   const noDuplicate = (value: any, index: number, self: any[]) => self.indexOf(value) === index
   let ips = ipsResponse.map(it => it.ip).filter(noDuplicate)
   let players = (await getPlayersByIP(...ips)).filter(it => it.uuid !== uuid)
-  if (players.length > 0) {
+  const maxDepth = 3
+  for (let i = 0; i < maxDepth; i++) {
+    if (players.length === 0) break
+    const before = ips.length
     const where = ' WHERE uuid=' + players.map(() => '?').join(' OR uuid=')
     const arr = (await sql.findAll('SELECT `ip` FROM `ipAddressHistory`' + where, ...players.map(it => it.uuid)))
       .map(it => it.ip)
       .filter(noDuplicate)
       .filter(i => !ips.includes(i))
-    if (arr.length > 0) {
-      ips.push(...arr)
-      players.push(...(await getPlayersByIP(...arr)).filter(it => it.uuid !== uuid))
-    }
+    if (arr.length === 0) break
+    ips.push(...arr)
+    players.push(...(await getPlayersByIP(...arr)).filter(it => it.uuid !== uuid))
+    if (ips.length === before) break
   }
   const newPlayers: Player[] = []
   players.forEach(p => {
