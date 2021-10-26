@@ -73,6 +73,7 @@ declare type SessionTable = {
 }
 
 declare type Session = {
+  state: string
   expires_at: number
   user_id: number
   ip: string

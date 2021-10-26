@@ -30,7 +30,7 @@ router.get('/get/:uuid', w(async (req, res) => {
 }))
 
 router.get('/find_accounts/:uuid', w(async (req, res) => {
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   const uuid = String(req.params.uuid)
   if (!uuid) return res.send404()

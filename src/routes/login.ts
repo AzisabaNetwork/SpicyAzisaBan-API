@@ -4,11 +4,10 @@ import { queueEmail } from '../util/backgroundTask'
 import {
   generateSecureRandomString,
   sleep,
-  sessions,
   validateAndGetSession,
   getIPAddress,
   validate2FAToken,
-  w, getSessionKey,
+  w, getSessionKey, putSession, getSession, deleteSession,
 } from '../util/util'
 import * as sql from '../util/sql'
 import * as crypt from '../util/crypt'
@@ -34,14 +33,15 @@ router.post('/login', w(async (req, res) => {
   if (!user.password) return res.status(400).send({ error: 'no_password' })
   if (!await crypt.compare(password, user.password)) return res.status(400).send({ error: 'invalid_email_or_password' })
   if (!await validate2FAToken(user.id, req.body.mfa_token)) return res.status(400).send({ error: 'incorrect_mfa_token' })
-  Promise.race([sleep(3000), generateSecureRandomString(50)]).then(state => {
+  await Promise.race([sleep(3000), generateSecureRandomString(50)]).then(async state => {
     if (!state) return res.status(500).send({ error: 'timed_out' })
-    sessions[state] = {
-      expires_at: Date.now() + 172800000, // 2 days
+    await putSession({
+      state,
+      expires_at: Date.now() + 1000 * 60 * 60 * 24 * 7, // a week
       user_id: user.id,
       ip: getIPAddress(req),
       pending: false
-    }
+    })
     res.cookie('spicyazisaban_session', state)
     res.send({
       state,
@@ -76,14 +76,15 @@ router.post('/register', w(async (req, res) => {
     await crypt.hash(password),
     getIPAddress(req),
   ) as number
-  Promise.race([sleep(3000), generateSecureRandomString(50)]).then(state => {
+  await Promise.race([sleep(3000), generateSecureRandomString(50)]).then(async state => {
     if (!state) return res.status(500).send({ error: 'timed_out' })
-    sessions[state] = {
+    await putSession({
+      state,
       expires_at: Date.now() + 1000 * 60 * 60,
       user_id: user_id,
       ip: getIPAddress(req),
       pending: true,
-    }
+    })
     const url = `${process.env.APP_URL}/register?state=${state}`
     queueEmail(`SpicyAzisaBan <${process.env.MAIL_FROM}>`, email, 'アカウント認証', undefined, `Hello,<br />
 <br />
@@ -99,7 +100,7 @@ SpicyAzisaBanのウェブサイトでアカウントデータを作成しまし�
 }))
 
 router.get('/register/:id', w(async (req, res) => {
-  const session = sessions[String(req.params.id)]
+  const session = await getSession(String(req.params.id))
   if (!session || !session.pending) return res.send403()
   if (session.ip !== getIPAddress(req)) return res.send403() // wrong guy
   res.send({
@@ -108,14 +109,14 @@ router.get('/register/:id', w(async (req, res) => {
   })
 }))
 
-router.all('/logout', w((req, res) => {
+router.all('/logout', w(async (req, res) => {
   const session = getSessionKey(req)
-  if (session) delete sessions[session]
+  if (session) await deleteSession(session)
   res.send({ message: 'ok' })
 }))
 
 router.get('/me', w(async (req, res) => {
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   const user = await sql.findOne("SELECT `id`, `username`, `group`, `last_update` FROM `users` WHERE `id` = ?", session.user_id)
   if (!user) return res.send401()

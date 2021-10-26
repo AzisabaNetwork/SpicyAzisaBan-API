@@ -4,11 +4,10 @@ import * as crypt from '../util/crypt'
 import qrcode from 'qrcode'
 import {
   validateAndGetSession,
-  sessions,
   isValidName,
   validate2FAToken,
   generateSecureRandomString,
-  w, getSessionKey,
+  w, getSessionKey, deleteSession, getSession,
 } from '../util/util'
 import { createNew } from '../util/totp'
 export const router = express.Router()
@@ -30,10 +29,10 @@ router.post('/changename', w(async (req, res) => {
   // - message: 'ok'
   if (!req.body || typeof req.body !== 'object') return res.status(400).send({ error: 'invalid_params' })
   let state = String(req.body.state)
-  let session = validateAndGetSession(req)
+  let session = await validateAndGetSession(req)
   if (session) state = getSessionKey(req) || ''
   if (!session && !state) return res.status(401).send({ error: 'unauthorized' })
-  if (!session) session = sessions[state]
+  if (!session) session = await getSession(state)
   if (!session) return res.status(401).send({ error: 'unauthorized' })
   const user_id = parseInt(req.body.user_id)
   if (user_id <= 0 || user_id !== user_id || session.user_id !== user_id) return res.status(403).send({ error: 'invalid_user' })
@@ -45,7 +44,7 @@ router.post('/changename', w(async (req, res) => {
   await sql.execute('UPDATE `users` SET `username` = ? WHERE `id` = ?', username, user_id)
   // if the session is pending, invalidate session now
   if (session.pending) {
-    delete sessions[state]
+    await deleteSession(state)
   }
   res.send({ message: 'ok' })
 }))
@@ -57,7 +56,7 @@ router.post('/changepassword', w(async (req, res) => {
   // - newPassword: string
   // response:
   // - message: 'ok'
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   if (!req.body || typeof req.body !== 'object') return res.status(400).send({ error: 'invalid_params' })
   const user_id = parseInt(req.body.user_id)
@@ -80,7 +79,7 @@ router.post('/enable_2fa', w(async (req, res) => {
   // - recovery_codes: string[] - 8 recovery codes
   // - qrcode: string - a long string (data url format)
   // user won't be able to see the both secret key and recovery codes after this request (they must reset if they forgot it)
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   if (await sql.findOne('SELECT `user_id` FROM `users_2fa` WHERE `user_id` = ?', session.user_id)) {
     return res.status(400).send({ error: 'already_enabled' })
@@ -123,7 +122,7 @@ router.post('/enable_2fa', w(async (req, res) => {
   const totp = createNew(user.email, secretKey)
   console.log(totp.secret)
   res.send({
-    secret_key: totp.secret.utf8,
+    secret_key: '',
     recovery_codes: recoveryCodes,
     qrcode: await qrcode.toDataURL(totp.toString()),
   })
@@ -134,7 +133,7 @@ router.post('/disable_2fa', w(async (req, res) => {
   // - token: string - current 2fa token or recovery code
   // response:
   // - message: 'ok'
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   if (!req.body || typeof req.body !== 'object') return res.status(400).send({ error: 'invalid_params' })
   if (!await validate2FAToken(session.user_id, req.body.token, true)) return res.status(400).send({ error: 'incorrect_mfa_token' })
@@ -151,7 +150,7 @@ router.post('/link_account', w(async (req, res) => {
   // - link_code: string
   // response (if already linked):
   // - error: 'already_linked'
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   const linkedUUIDResponse = await sql.findOne('SELECT `linked_uuid` FROM `users_linked_accounts` WHERE `user_id` = ?', session.user_id)
   if (linkedUUIDResponse && linkedUUIDResponse.linked_uuid) {
@@ -178,14 +177,14 @@ router.post('/link_account', w(async (req, res) => {
 router.post('/unlink_account', w(async (req, res) => {
   // response (always):
   // - message: 'ok'
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   await sql.execute('DELETE FROM `users_linked_accounts` WHERE `user_id` = ?', session.user_id)
   res.send({ message: 'ok' })
 }))
 
 router.get('/get/:id', w(async (req, res) => {
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   const id = parseInt(req.params.id) || 0
   if (isNaN(id) || id <= 0) return res.send400()
@@ -206,7 +205,7 @@ router.post('/update', w(async (req, res) => {
   // - message: 'ok'
   // errors:
   // - missing_permissions - actor doesn't have admin group
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   if (!req.body || typeof req.body !== 'object') return res.status(400).send({ error: 'invalid_params' })
   const id = parseInt(req.body.id)
@@ -216,30 +215,26 @@ router.post('/update', w(async (req, res) => {
   if (you.group !== 'admin') return res.status(403).send({ error: 'missing_permissions' })
   const sets = new Array<string>()
   const args = new Array<any>()
-  let stop = false
-  const checkBody = async (s: string, toValueFunction: ((arg: any) => any | Promise<any>)) => {
+  const checkBody = async (s: string, toValueFunction: ((arg: any) => any | Promise<any>)): Promise<boolean> => {
     if (req.body[s]) {
       sets.push(`\`${s}\` = ?`)
       try {
         args.push(await toValueFunction(req.body[s]))
       } catch (e) {
         res.status(400).send(e.message)
-        stop = true
+        return false
       }
     }
+    return true
   }
-  await checkBody('username', String)
-  await checkBody('email', String)
-  await checkBody('group', o => {
+  if (!await checkBody('username', String)) return
+  if (!await checkBody('email', String)) return
+  if (!await checkBody('group', o => {
     const s = String(o)
     if (!['admin', 'manager', 'user'].includes(s)) throw new Error('invalid_group')
     return s
-  })
-  await checkBody('password', async o => {
-    const s = String(o)
-    return await crypt.hash(s)
-  })
-  if (stop) return
+  })) return
+  if (!await checkBody('password', o => crypt.hash(String(o)))) return
   if (sets.length > 0) {
     await sql.execute('UPDATE `users` SET ' + sets.join(', ') + ' WHERE `id` = ?', ...args, id)
   }

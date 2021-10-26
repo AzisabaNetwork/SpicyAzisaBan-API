@@ -35,7 +35,7 @@ const validPunishmentTypes = [
 ]
 
 router.get('/list', w(async (req, res) => {
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send403()
   let page = parseInt(req.query?.page) || 0
   if (isNaN(page)) page = 0
@@ -52,7 +52,7 @@ router.get('/list', w(async (req, res) => {
 }))
 
 router.get('/get/:id', w(async (req, res) => {
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   const id = parseInt(req.params.id) || 0
   if (isNaN(id)) return res.send400()
@@ -88,7 +88,7 @@ router.post('/update', w(async (req, res) => {
   if (end <= 0) end = -1
   const unpunishReason = req.body.unpunish_reason ? String(req.body.unpunish_reason) : null
   const proofs = (req.body.proofs || []) as Array<{ id: number, value: string }>
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send403()
   const user = await getUser(session.user_id)
   if (!user) return res.send403()
@@ -164,7 +164,7 @@ router.post('/create', w(async (req, res) => {
   if (!validPunishmentTypes.includes(type)) return res.send400()
   let name: string
   let finalTarget: string
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   if (type.includes('IP_')) {
     if (isValidIPAddress(target) && !isPunishableIP(target)) {
@@ -232,7 +232,7 @@ router.post('/unpunish', w(async (req, res) => {
   if (isNaN(id) || id <= 0) return res.send400()
   const reason = String(req.body.reason)
   if (!reason || !req.body.reason) return res.send400()
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send403()
   const linkedUUIDResponse = await sql.findOne('SELECT `linked_uuid` FROM `users_linked_accounts` WHERE `user_id` = ?', session.user_id)
   const operator = linkedUUIDResponse ? linkedUUIDResponse['linked_uuid'] : null

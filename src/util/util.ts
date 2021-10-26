@@ -4,7 +4,7 @@ import * as totp from './totp'
 import express, { NextFunction } from 'express'
 import { parse, stringify } from 'uuid'
 
-export const sessions: SessionTable = {}
+const sessions: SessionTable = {}
 
 export const generateSecureRandomString = (lengthDividedBy2: number): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -26,10 +26,10 @@ export const sleep = async (time: number): Promise<void> => {
 // - spicyazisaban_session in cookies
 // - spicyazisaban_session in request body
 // - x-spicyazisaban-session in request headers
-export const validateAndGetSession = (req: express.Request): Session | null => {
+export const validateAndGetSession = async (req: express.Request): Promise<Session | null> => {
   const session = getSessionKey(req)
   if (!session) return null
-  const token = sessions[session]
+  const token = await getSession(session)
   // reject if:
   // - no session
   // - expired session
@@ -220,6 +220,51 @@ export const getPlayersByName = async (...names: string[]): Promise<Array<Player
 export const getPlayersByIP = async (...ips: string[]): Promise<Array<Player>> => {
   const where = ips.length > 0 ? ' WHERE ip=' + ips.map(() => '?').join(' OR ip=') : ''
   return await sql.findAll('SELECT * FROM `players`' + where, ...ips)
+}
+
+export const getSession = async (state: string, cache: boolean = true): Promise<Session | null> => {
+  const cached = sessions[state]
+  if (!cache || !cached || cached.expires_at < Date.now()) {
+    if (cached?.expires_at > Date.now() && cached?.ip === '' && cached?.pending && cached?.user_id === 0) return null
+    const session = await sql.findOne('SELECT * FROM `web_sessions` WHERE `state` = ?', state)
+    if (!session) {
+      sessions[state] = {
+        state,
+        expires_at: Date.now() + 1000 * 60 * 60,
+        ip: '',
+        pending: true,
+        user_id: 0,
+      }
+    } else {
+      sessions[state] = {
+        ...session,
+        expires_at: Math.min(session.expires_at, Date.now() + 1000 * 60 * 60 * 12),
+      }
+    }
+  }
+  return sessions[state]
+}
+
+export const deleteSession = async (state: string): Promise<void> => {
+  await sql.execute('DELETE FROM `web_sessions` WHERE `state` = ?', state)
+  delete sessions[state]
+}
+
+// throws error on duplicate 'state'
+export const putSession = async (session: Session): Promise<Session> => {
+  await sql.execute(
+    'INSERT INTO `web_sessions` (`state`, `expires_at`, `user_id`, `ip`, `pending`) VALUES (?, ?, ?, ?, ?)',
+    session.state,
+    session.expires_at,
+    session.user_id,
+    session.ip,
+    session.pending,
+  )
+  sessions[session.state] = {
+    ...session,
+    expires_at: Math.min(session.expires_at, Date.now() + 1000 * 60 * 60 * 12),
+  }
+  return session
 }
 
 export const resolveToIPByTarget = async (target: string): Promise<string | null> => {

@@ -140,6 +140,20 @@ export const init = async () =>
         debug('Created users_linked_accounts table')
       }
     })
+    await findOne('SHOW TABLES LIKE "web_sessions"').then(async res => {
+      if (!res) {
+        debug('Creating web_sessions table')
+        await execute(`CREATE TABLE web_sessions (
+  \`state\` varchar(255) NOT NULL UNIQUE,
+  \`expires_at\` bigint DEFAULT 0,
+  \`user_id\` int unsigned NOT NULL,
+  \`ip\` varchar(128) DEFAULT NULL,
+  \`pending\` tinyint(1) DEFAULT 0,
+  PRIMARY KEY (\`state\`)
+)`)
+        debug('Created web_sessions table')
+      }
+    })
   }).catch(e => {
     console.error('Your mysql configuration is foobar, pls fix')
     console.error(e.stack || e)

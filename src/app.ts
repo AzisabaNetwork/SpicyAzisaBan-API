@@ -75,7 +75,7 @@ app.all('*', function (req, res, next) {
 // restrict access for /admin routes
 // @ts-ignore
 app.use('/admin', async (req: Request, res: Response, next) => {
-  const session = req.session = validateAndGetSession(req)
+  const session = req.session = await validateAndGetSession(req)
   if (!session) return res.send401()
   const user = req.user = await getUser(session.user_id)
   if (user?.group !== 'admin') {

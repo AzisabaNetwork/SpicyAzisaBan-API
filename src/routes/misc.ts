@@ -9,7 +9,7 @@ router.post('/search', w(async (req, res) => {
   if (!query || !req.body.query) return res.send400()
   const type = String(req.body.type).toLowerCase().split(',')
   if (!req.body.type || !type) return res.send({ users: [], players: [], punishments: [] })
-  const session = validateAndGetSession(req)
+  const session = await validateAndGetSession(req)
   if (!session) return res.send401()
   const user = await sql.findOne('SELECT `group` FROM `users` WHERE `id` = ?', session.user_id)
   if (!user) throw new Error('Could not find an user ' + session.user_id)
