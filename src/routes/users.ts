@@ -67,7 +67,12 @@ router.post('/changepassword', w(async (req, res) => {
   if (newPassword.length < 7) return res.status(400).send({ error: 'invalid' })
   const user = await sql.findOne('SELECT `password` FROM `users` WHERE `id` = ?', user_id)
   if (!await crypt.compare(currentPassword, user.password)) return res.status(401).send({ error: 'incorrect_password' })
+
+  // Update the hashed password
   await sql.execute('UPDATE `users` SET `password` = ? WHERE `id` = ?', await crypt.hash(newPassword), user_id)
+
+  // Invalidate all sessions except for the current session
+  await sql.execute('DELETE FROM `web_sessions` WHERE `user_id` = ? AND `state` != ?', session.user_id, session.state)
   res.send({ message: 'ok' })
 }))
 
