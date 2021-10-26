@@ -222,6 +222,11 @@ export const getPlayersByIP = async (...ips: string[]): Promise<Array<Player>> =
   return await sql.findAll('SELECT * FROM `players`' + where, ...ips)
 }
 
+export const getUUIDsByIPHistory = async (...ips: string[]): Promise<Array<string>> => {
+  const where = ips.length > 0 ? ' WHERE ip=' + ips.map(() => '?').join(' OR ip=') : ''
+  return (await sql.findAll('SELECT `uuid` FROM `ipAddressHistory`' + where, ...ips)).map(it => it.uuid)
+}
+
 export const getSession = async (state: string, cache: boolean = true): Promise<Session | null> => {
   const cached = sessions[state]
   if (!cache || !cached || cached.expires_at < Date.now()) {
