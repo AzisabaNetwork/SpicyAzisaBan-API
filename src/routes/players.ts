@@ -1,7 +1,7 @@
 import express from 'express'
 import {
-  getPlayersByUUID, getPunishmentHistoryByTarget,
-  getPunishmentsByPunishId, getUUIDsByIPHistory,
+  getPlayersByIP, getPunishmentHistoryByTarget,
+  getPunishmentsByPunishId,
   sanitizeSQLABit,
   validateAndGetSession,
   w,
@@ -38,22 +38,26 @@ router.get('/find_accounts/:uuid', w(async (req, res) => {
   if (!ipsResponse || ipsResponse.length === 0) return res.send404()
   const noDuplicate = (value: any, index: number, self: any[]) => self.indexOf(value) === index
   let ips = ipsResponse.map(it => it.ip).filter(noDuplicate)
-  const uuids = (await getUUIDsByIPHistory(...ips)).filter(it => it !== uuid)
+  let players = (await getPlayersByIP(...ips)).filter(it => it.uuid !== uuid)
   const maxDepth = 3
   for (let i = 0; i < maxDepth; i++) {
-    if (uuids.length === 0) break
+    if (players.length === 0) break
     const before = ips.length
-    const where = ' WHERE uuid=' + uuids.map(() => '?').join(' OR uuid=')
-    const arr = (await sql.findAll('SELECT `ip` FROM `ipAddressHistory`' + where, ...uuids))
+    const where = ' WHERE uuid=' + players.map(() => '?').join(' OR uuid=')
+    const arr = (await sql.findAll('SELECT `ip` FROM `ipAddressHistory`' + where, ...players.map(it => it.uuid)))
       .map(it => it.ip)
       .filter(noDuplicate)
       .filter(i => !ips.includes(i))
     if (arr.length === 0) break
     ips.push(...arr)
-    uuids.push(...(await getUUIDsByIPHistory(...arr)))
+    players.push(...(await getPlayersByIP(...arr)).filter(it => it.uuid !== uuid))
     if (ips.length === before) break
   }
-  const players = await getPlayersByUUID(...uuids)
+  const newPlayers: Player[] = []
+  players.forEach(p => {
+    if (!newPlayers.some(p1 => p1.uuid === p.uuid)) newPlayers.push(p)
+  })
+  players = newPlayers
   const punishments = await getPunishmentHistoryByTarget(...ips, ...players.map(it => it.uuid))
   const activePunishments = await getPunishmentsByPunishId(...punishments.map(it => it.id))
   punishments.forEach(it => it.active = !!activePunishments.find(p => p.id === it.id))
