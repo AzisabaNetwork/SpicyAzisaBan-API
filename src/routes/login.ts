@@ -11,6 +11,7 @@ import {
 } from '../util/util'
 import * as sql from '../util/sql'
 import * as crypt from '../util/crypt'
+import { SESSION_LENGTH, UNCONFIRMED_USER_SESSION_LENGTH } from '../util/constants'
 const debug = require('debug')('spicyazisaban:route:login')
 
 router.post('/login', w(async (req, res) => {
@@ -37,7 +38,7 @@ router.post('/login', w(async (req, res) => {
     if (!state) return res.status(500).send({ error: 'timed_out' })
     await putSession({
       state,
-      expires_at: Date.now() + 1000 * 60 * 60 * 24 * 7, // a week
+      expires_at: Date.now() + SESSION_LENGTH, // a week
       user_id: user.id,
       ip: getIPAddress(req),
       pending: false
@@ -80,7 +81,7 @@ router.post('/register', w(async (req, res) => {
     if (!state) return res.status(500).send({ error: 'timed_out' })
     await putSession({
       state,
-      expires_at: Date.now() + 1000 * 60 * 60,
+      expires_at: Date.now() + UNCONFIRMED_USER_SESSION_LENGTH,
       user_id: user_id,
       ip: getIPAddress(req),
       pending: true,

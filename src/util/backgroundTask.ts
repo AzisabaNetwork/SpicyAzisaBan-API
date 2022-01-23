@@ -6,6 +6,7 @@ import mailDriver from '../mailDrivers/mailDriver'
 import LogDriver from '../mailDrivers/log'
 import SMTPDriver from '../mailDrivers/smtp'
 import { rateLimits} from './util'
+import { SESSION_LENGTH, UNCONFIRMED_USER_SESSION_LENGTH } from './constants'
 
 export const tasks: Array<Task> = []
 export const randomTasks: Array<Task> = []
@@ -110,15 +111,15 @@ handler()
 randomHandler()
 
 setInterval(() => {
-  const a_hour = 3600000
-  // remove users that's unverified (their email) for over a hour
+  // remove users that's unverified (their email) for over an hour
   sql.findAll('SELECT `id`, `last_update` FROM `users` WHERE `username` LIKE "SpicyAzisaBan user%"').then(res => {
     const toRemove: number[] = []
     res.forEach(user => {
-      if (user.last_update.getTime() - (Date.now() - a_hour) < 0) toRemove.push(user.id)
+      if (user.last_update.getTime() - (Date.now() - UNCONFIRMED_USER_SESSION_LENGTH) < 0) toRemove.push(user.id)
     })
     if (toRemove.length > 0) sql.execute(`DELETE FROM \`users\` WHERE \`id\` = ${toRemove.join(' OR `id` = ')}`)
   })
+  sql.execute('DELETE FROM `web_sessions` WHERE `expires_at` < ?', (Date.now() - SESSION_LENGTH))
 }, 1000 * 60 * 5)
 
 setInterval(() => {
