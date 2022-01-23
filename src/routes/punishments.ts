@@ -35,6 +35,8 @@ const validPunishmentTypes = [
 ]
 
 router.get('/list', w(async (req, res) => {
+  // request:
+  // - page: number - page number, each page contains 25 entries
   const session = await validateAndGetSession(req)
   if (!session) return res.send403()
   let page = parseInt(req.query?.page) || 0
@@ -48,6 +50,23 @@ router.get('/list', w(async (req, res) => {
   res.send({
     data: punishments,
     hasNext: punishments.length == 25, // returns true even if size of punishmentHistory % 25 == 0? i don't care for now.
+  })
+}))
+
+router.get('/punishments_by/:uuid', w(async (req, res) => {
+  // request:
+  // - uuid: string - player's uuid
+  const session = await validateAndGetSession(req)
+  if (!session) return res.send403()
+  const uuid = String(req.params.uuid)
+  if (uuid.length != 36) return res.send400()
+  const punishments = await sql.findAll('SELECT * FROM `punishmentHistory` WHERE `operator` = ? ORDER BY `start`', uuid) as Punishment[]
+  const activePunishments = (await getPunishmentsByPunishId(...punishments.map(p => p.id))).map(u => u.id)
+  const unpunishes = (await getUnpunishesByPunishId(...punishments.map(p => p.id))).map(u => u.punish_id)
+  punishments.forEach(p => p.unpunished = unpunishes.includes(p.id))
+  punishments.forEach(p => p.active = activePunishments.includes(p.id))
+  res.send({
+    data: punishments,
   })
 }))
 

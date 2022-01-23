@@ -18,6 +18,7 @@ export const getGoodSaltRounds = async (): Promise<number> => {
   return goodSaltRounds = i - 1
 }
 
+// hashed password of test123: $2b$15$./Gl03K6bS7DuqYqN4fjn.uFVB6IYlzYDbcBqo3Hdbn1GPNcOwmUO
 export const hash = async (data: any): Promise<string> => await bcrypt.hash(data, await getGoodSaltRounds())
 
 export * from 'bcrypt'
