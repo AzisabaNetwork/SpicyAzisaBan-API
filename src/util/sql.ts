@@ -140,6 +140,18 @@ export const init = async () =>
         debug('Created users_linked_accounts table')
       }
     })
+    await findOne('SHOW TABLES LIKE "users_linked_discord_account"').then(async res => {
+      if (!res) {
+        debug('Creating users_linked_discord_account table')
+        await execute(`CREATE TABLE users_linked_discord_account (
+  \`user_id\` int unsigned NOT NULL UNIQUE,
+  \`discord_user_id\` varchar(100) NOT NULL UNIQUE,
+  \`discord_user_tag\` varchar(255) NOT NULL UNIQUE,
+  PRIMARY KEY (\`user_id\`)
+)`)
+        debug('Created users_linked_accounts table')
+      }
+    })
     await findOne('SHOW TABLES LIKE "web_sessions"').then(async res => {
       if (!res) {
         debug('Creating web_sessions table')

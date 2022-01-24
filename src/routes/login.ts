@@ -34,7 +34,7 @@ router.post('/login', w(async (req, res) => {
   if (!user.password) return res.status(400).send({ error: 'no_password' })
   if (!await crypt.compare(password, user.password)) return res.status(400).send({ error: 'invalid_email_or_password' })
   if (!await validate2FAToken(user.id, req.body.mfa_token)) return res.status(400).send({ error: 'incorrect_mfa_token' })
-  await Promise.race([sleep(3000), generateSecureRandomString(50)]).then(async state => {
+  await Promise.race([sleep(10000), generateSecureRandomString(50)]).then(async state => {
     if (!state) return res.status(500).send({ error: 'timed_out' })
     await putSession({
       state,
@@ -133,8 +133,13 @@ router.get('/me', w(async (req, res) => {
     ? await sql.findOne('SELECT `name` FROM `players` WHERE `uuid` = ?', linkedUUIDResponse?.linked_uuid)
     : null
   const mfa = await sql.findOne('SELECT `user_id` FROM `users_2fa` WHERE `user_id` = ?', user.id)
+  const discordData = await sql.findOne('SELECT `discord_user_id`, `discord_user_tag` FROM `users_linked_discord_account` WHERE `user_id` = ?', user.id)
   user.linked_uuid = linkedUUIDResponse?.linked_uuid || null
   user.linked_name = linkedNameResponse?.name || null
   user.mfa_enabled = !!mfa
+  if (discordData) {
+    user.discord_user_id = discordData.discord_user_id
+    user.discord_user_tag = discordData.discord_user_tag
+  }
   res.send(user)
 }))

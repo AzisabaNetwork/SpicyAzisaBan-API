@@ -24,10 +24,6 @@ import { router as indexRouter } from './routes'
 
 export const app = express()
 
-// view engine setup
-app.set('views', './views')
-app.set('view engine', 'ejs')
-
 // @ts-ignore
 app.use((req: Request, res: Response, next) => {
   res.send400 = () => res.status(400).send({ error: 'bad_request' })
@@ -54,20 +50,18 @@ app.use(logger('dev', {
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
 app.use(cookieParser())
-app.use(cors({
+const c = cors({
   origin: (origin: string, callback: (err: Error | null, result?: boolean) => void) => {
     if (!origin) return callback(new Error('Not allowed by CORS'))
     if (origin === process.env.APP_URL) return callback(null, true)
-    if (process.env.ADDITIONAL_CORS?.split(',')?.find(s => origin.endsWith(s))) return callback(null, true)
+    if (process.env.ADDITIONAL_CORS?.split(',')?.indexOf(origin) !== -1) return callback(null, true)
     callback(new Error('Not allowed by CORS'))
   },
+})
+app.use(cors({
+  origin: '*',
 }))
-//app.use(express.static('./public'))
 
-/*
-app.use(csrf({ cookie: true }))
-
-*/
 app.all('*', function (req, res, next) {
     res.setHeader('Vary', 'Origin')
     next()
@@ -75,7 +69,7 @@ app.all('*', function (req, res, next) {
 
 // restrict access for /admin routes
 // @ts-ignore
-app.use('/admin', async (req: Request, res: Response, next) => {
+app.use('/admin', c, async (req: Request, res: Response, next) => {
   const session = req.session = await validateAndGetSession(req)
   if (!session) return res.send401()
   const user = req.user = await getUser(session.user_id)
