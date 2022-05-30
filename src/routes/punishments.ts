@@ -129,21 +129,25 @@ router.post('/update', w(async (req, res) => {
   const currentProofs = await getProofsByBanId(id)
   for (const proof of currentProofs) {
     if (!proofs.find(p => p.id === proof.id)) {
+      //const proofData = await sql.findOne('SELECT * FROM `proofs` WHERE `id` = ? AND `punish_id` = ? LIMIT 1', proof.id, id) as Proof
       await sql.execute('DELETE FROM `proofs` WHERE `id` = ? AND `punish_id` = ? LIMIT 1', proof.id, id)
+      //await sql.execute('INSERT INTO `events` (`event_id`, `data`, `handled`) VALUES ("removed_proof", ?, false)', JSON.stringify({ ...proofData, actor: { id: user.id, username: user.username } }))
     }
   }
   for (const proof of proofs) {
     if (proof.value && proof.id > 0) {
       await sql.execute('UPDATE `proofs` SET `text` = ? WHERE `id` = ? AND `punish_id` = ? LIMIT 1', proof.value.toString().substring(0, Math.min(proof.value.toString().length, 255)), proof.id, id)
       newProofs.push({ id: proof.id, value: proof.value.toString() })
+      //await sql.execute('INSERT INTO `events` (`event_id`, `data`, `handled`) VALUES ("updated_proof", ?, false)', JSON.stringify({ id: proof.id, actor: { id: user.id, username: user.username } }))
     }
     if (proof.value && proof.id === -1) {
       const proofId = await sql.findOne('INSERT INTO `proofs` (`id`, `punish_id`, `text`) VALUES (NULL, ?, ?)', id, proof.value.toString())
       newProofs.push({ id: proofId, value: proof.value.toString() })
+      //await sql.execute('INSERT INTO `events` (`event_id`, `data`, `handled`) VALUES ("added_proof", ?, false)', JSON.stringify({ id: proofId, actor: { id: user.id, username: user.username } }))
     }
   }
   if (unpunishReason) await sql.execute('UPDATE `unpunish` SET `reason` = ? WHERE `punish_id` = ? LIMIT 1', unpunishReason, id)
-  await sql.execute('INSERT INTO `events` (`event_id`, `data`, `seen`) VALUES ("updated_punishment", ?, "")', JSON.stringify({ id }))
+  await sql.execute('INSERT INTO `events` (`event_id`, `data`, `handled`) VALUES ("updated_punishment", ?, false)', JSON.stringify({ id }))
   debug(`Punishment #${id} successfully updated by ${user.id}`)
   res.send({ message: 'ok', proofs: newProofs })
 }))
@@ -237,7 +241,7 @@ router.post('/create', w(async (req, res) => {
     server,
     '',
   )
-  await sql.execute('INSERT INTO `events` (`event_id`, `data`, `seen`) VALUES ("add_punishment", ?, "")', JSON.stringify({ id }))
+  await sql.execute('INSERT INTO `events` (`event_id`, `data`, `handled`) VALUES ("add_punishment", ?, false)', JSON.stringify({ id }))
   debug(`Punishment #${id} successfully created by ${session.user_id}`)
   res.send({ ids: [ id ] })
 }))
@@ -265,7 +269,7 @@ router.post('/unpunish', w(async (req, res) => {
   }
   await sql.execute('DELETE FROM `punishments` WHERE `id` = ?', id)
   await sql.execute('INSERT INTO `unpunish` (`punish_id`, `reason`, `timestamp`, `operator`) VALUES (?, ?, ?, ?)', id, reason, Date.now(), operator)
-  await sql.execute('INSERT INTO `events` (`event_id`, `data`, `seen`) VALUES ("removed_punishment", ?, "")', JSON.stringify({ punish_id: id }))
+  await sql.execute('INSERT INTO `events` (`event_id`, `data`, `handled`) VALUES ("removed_punishment", ?, false)', JSON.stringify({ punish_id: id }))
   debug(`Punishment #${id} successfully unpunished by ${user.id}`)
   res.send({ message: 'ok' })
 }))
