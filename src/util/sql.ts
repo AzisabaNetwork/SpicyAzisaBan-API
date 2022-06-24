@@ -39,7 +39,8 @@ export const query = (sql: string, ...values: Array<any>): Promise<{ results: Ar
 
 export const queryWithConnection = (connection: Connection, sql: string, ...values: Array<any>): Promise<{ results: Array<any>, fields: FieldInfo[] | undefined }> => {
   return new Promise((resolve, reject) => {
-    if (sql.startsWith('SELECT * FROM `users` ') || sql.startsWith('SELECT * FROM users ')) {
+    // attempt to block unsafe sql (at runtime)
+    if (sql.toLowerCase().startsWith('select * from `users` ') || sql.toLowerCase().startsWith('select * from users ')) {
       return reject(new Error('Unsafe SQL: ' + sql))
     }
     debug(sql, values)
@@ -68,6 +69,7 @@ export const execute = (sql: string, ...values: Array<any>): Promise<void> => {
 
 export const findOne = async (sql: string, ...values: Array<any>): Promise<any> => {
   if (!sql.toLowerCase().startsWith('insert')) return await query(sql, ...values).then(value => value.results[0] || null)
+  // we need to get new connection because LAST_INSERT_ID is per-connection basis.
   const connection = await getConnection()
   await queryWithConnection(connection, sql, ...values)
   return await queryWithConnection(connection, "SELECT LAST_INSERT_ID() AS why").then(value => value.results[0] ? value.results[0]['why'] : null)

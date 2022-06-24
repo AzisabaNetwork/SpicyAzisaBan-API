@@ -106,7 +106,7 @@ router.post('/update', w(async (req, res) => {
   if (isNaN(end)) return res.send400()
   if (end <= 0) end = -1
   const unpunishReason = req.body.unpunish_reason ? String(req.body.unpunish_reason) : null
-  const proofs = (req.body.proofs || []) as Array<{ id: number, value: string }>
+  const proofs = (req.body.proofs || []) as Array<{ id: number, value: string, public: boolean | unknown }>
   const session = await validateAndGetSession(req)
   if (!session) return res.send403()
   const user = await getUser(session.user_id)
@@ -136,12 +136,12 @@ router.post('/update', w(async (req, res) => {
   }
   for (const proof of proofs) {
     if (proof.value && proof.id > 0) {
-      await sql.execute('UPDATE `proofs` SET `text` = ? WHERE `id` = ? AND `punish_id` = ? LIMIT 1', proof.value.toString().substring(0, Math.min(proof.value.toString().length, 255)), proof.id, id)
+      await sql.execute('UPDATE `proofs` SET `text` = ?, `public` = ? WHERE `id` = ? AND `punish_id` = ? LIMIT 1', proof.value.toString().substring(0, Math.min(proof.value.toString().length, 255)), proof.public === true, proof.id, id)
       newProofs.push({ id: proof.id, value: proof.value.toString() })
       //await sql.execute('INSERT INTO `events` (`event_id`, `data`, `handled`) VALUES ("updated_proof", ?, false)', JSON.stringify({ id: proof.id, actor: { id: user.id, username: user.username } }))
     }
     if (proof.value && proof.id === -1) {
-      const proofId = await sql.findOne('INSERT INTO `proofs` (`id`, `punish_id`, `text`) VALUES (NULL, ?, ?)', id, proof.value.toString())
+      const proofId = await sql.findOne('INSERT INTO `proofs` (`id`, `punish_id`, `text`, `public`) VALUES (NULL, ?, ?, ?)', id, proof.value.toString(), proof.public === true)
       newProofs.push({ id: proofId, value: proof.value.toString() })
       //await sql.execute('INSERT INTO `events` (`event_id`, `data`, `handled`) VALUES ("added_proof", ?, false)', JSON.stringify({ id: proofId, actor: { id: user.id, username: user.username } }))
     }

@@ -25,15 +25,25 @@ router.post('/login', w(async (req, res) => {
       || !email
       || !email.includes('@')
   ) {
-    return res.status(400).send({ error: 'invalid_email_or_password' })
+    return res.status(401).send({ error: 'invalid_email_or_password' })
   }
   const user = await sql.findOne('SELECT `id`, `password`, `username` FROM users WHERE email = ? LIMIT 1', req.body.email)
-  if (!user) return res.status(400).send({ error: 'invalid_email_or_password' })
+  if (!user) {
+    return res.status(401).send({ error: 'invalid_email_or_password' })
+  }
   //if (user.banned) return res.status(400).send({ error: 'banned', reason: user.banned_reason })
-  if (user.username.includes('SpicyAzisaBan user')) return res.status(400).send({ error: 'incomplete_user' })
-  if (!user.password) return res.status(400).send({ error: 'no_password' })
-  if (!await crypt.compare(password, user.password)) return res.status(400).send({ error: 'invalid_email_or_password' })
-  if (!await validate2FAToken(user.id, req.body.mfa_token)) return res.status(400).send({ error: 'incorrect_mfa_token' })
+  if (user.username.includes('SpicyAzisaBan user')) {
+    return res.status(401).send({ error: 'incomplete_user' })
+  }
+  if (!user.password) {
+    return res.status(401).send({ error: 'no_password' })
+  }
+  if (!await crypt.compare(password, user.password)) {
+    return res.status(401).send({ error: 'invalid_email_or_password' })
+  }
+  if (!await validate2FAToken(user.id, req.body.mfa_token)) {
+    return res.status(401).send({ error: 'invalid_email_or_password' })
+  }
   await Promise.race([sleep(10000), generateSecureRandomString(50)]).then(async state => {
     if (!state) return res.status(500).send({ error: 'timed_out' })
     await putSession({
@@ -65,7 +75,7 @@ router.post('/register', w(async (req, res) => {
     || !email
     || !email.includes('@')
   ) {
-    return res.status(400).send({ error: 'invalid_email_or_password' })
+    return res.status(401).send({ error: 'invalid_email_or_password' })
   }
   if (await sql.findOne('SELECT `id` FROM users WHERE `email` = ? OR `ip` = ?', email, getIPAddress(req))) {
     return res.status(400).send({ error: 'dupe_user' })

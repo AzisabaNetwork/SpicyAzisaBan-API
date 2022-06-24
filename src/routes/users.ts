@@ -139,9 +139,15 @@ router.post('/disable_2fa', w(async (req, res) => {
   // response:
   // - message: 'ok'
   const session = await validateAndGetSession(req)
-  if (!session) return res.send401()
-  if (!req.body || typeof req.body !== 'object') return res.status(400).send({ error: 'invalid_params' })
-  if (!await validate2FAToken(session.user_id, req.body.token, true)) return res.status(400).send({ error: 'incorrect_mfa_token' })
+  if (!session) {
+    return res.send401()
+  }
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).send({ error: 'invalid_params' })
+  }
+  if (!await validate2FAToken(session.user_id, req.body.token, true)) {
+    return res.status(400).send({ error: 'incorrect_mfa_token' })
+  }
   await sql.execute('DELETE FROM `users_2fa` WHERE `user_id` = ?', session.user_id)
   await sql.execute('DELETE FROM `users_2fa_recovery_codes` WHERE `user_id` = ?', session.user_id)
   res.send({ message: 'ok' })
