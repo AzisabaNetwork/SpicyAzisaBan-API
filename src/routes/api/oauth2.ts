@@ -1,6 +1,6 @@
 import express from 'express'
 import {
-  generateSecureRandomString, getIPAddress, putSession, sleep, validateAndGetSession,
+  generateSecureRandomString, getIPAddress, putSession, rateLimit, sleep, validateAndGetSession,
   w,
 } from '../../util/util'
 import * as sql from '../../util/sql'
@@ -17,6 +17,9 @@ const states: {
 } = {}
 
 router.get('/discord/get_url', w(async (req, res) => {
+  if (rateLimit('route:api:oauth2:discord/get_url', 'ip:' + getIPAddress(req), 30)) {
+    return res.status(429).send({ error: 'rate_limited' })
+  }
   const session = await validateAndGetSession(req)
   const forWhat = String(req.query?.['for'])
   if (forWhat !== 'link' && forWhat !== 'login') return res.send400()
@@ -36,6 +39,9 @@ router.get('/discord/get_url', w(async (req, res) => {
 }))
 
 router.get('/discord/callback', w(async (req, res) => {
+  if (rateLimit('route:login:login', 'ip:' + getIPAddress(req), 15)) {
+    return res.status(429).send({ error: 'rate_limited' })
+  }
   const state = String(req.query?.state)
   const code = String(req.query?.code)
   if (!(req.query?.state) || !(req.query?.code) || !state || !code) return res.send400()

@@ -7,7 +7,7 @@ import {
   validateAndGetSession,
   getIPAddress,
   validate2FAToken,
-  w, getSessionKey, putSession, getSession, deleteSession,
+  w, getSessionKey, putSession, getSession, deleteSession, rateLimit,
 } from '../util/util'
 import * as sql from '../util/sql'
 import * as crypt from '../util/crypt'
@@ -15,8 +15,14 @@ import { SESSION_LENGTH, UNCONFIRMED_USER_SESSION_LENGTH } from '../util/constan
 const debug = require('debug')('spicyazisaban:route:login')
 
 router.post('/login', w(async (req, res) => {
+  if (rateLimit('route:login:login', 'ip:' + getIPAddress(req), 10)) {
+    return res.status(429).send({ error: 'rate_limited' })
+  }
   if (!req.body || typeof req.body !== 'object') return res.status(400).send({ error: 'invalid_params' })
   const email = String(req.body['email'])
+  if (rateLimit('route:login:login', 'email:' + email, 5)) {
+    return res.status(429).send({ error: 'rate_limited' })
+  }
   const password = String(req.body['password'])
   // no password || password less than 7 length || no email || does not contain @
   if (
@@ -62,6 +68,9 @@ router.post('/login', w(async (req, res) => {
 }))
 
 router.post('/register', w(async (req, res) => {
+  if (rateLimit('route:login:register', 'ip:' + getIPAddress(req), 1)) {
+    return res.status(429).send({ error: 'rate_limited' })
+  }
   // request:
   // - email: string
   // - password: string
@@ -97,12 +106,22 @@ router.post('/register', w(async (req, res) => {
       pending: true,
     })
     const url = `${process.env.APP_URL}/register?state=${state}`
+    /*
     queueEmail(`SpicyAzisaBan <${process.env.MAIL_FROM}>`, email, 'アカウント認証', undefined, `Hello,<br />
 <br />
 SpicyAzisaBanのウェブサイトでアカウントデータを作成しました。<br />
 下記のリンクをクリックして認証を完了してアカウントの作成を完了させてください。
 <a href='${url}'>${url}</a><br />
 <br />
+アカウント作成をリクエストしていない場合は、このメールを無視してください。
+`)
+    */
+    queueEmail(`SpicyAzisaBan <${process.env.MAIL_FROM}>`, email, 'アカウント認証', `Hello,
+
+SpicyAzisaBanのウェブサイトでアカウントデータを作成しました。
+下記のリンクをクリックして認証を完了してアカウントの作成を完了させてください。
+${url}
+
 アカウント作成をリクエストしていない場合は、このメールを無視してください。
 `)
     debug(`Verification email queued for ${user_id} to ${email}: ${url}`)

@@ -2,10 +2,10 @@ import * as sql from './sql'
 
 const debug = require('debug')('spicyazisaban:background-task-executor')
 
-import mailDriver from '../mailDrivers/mailDriver'
 import LogDriver from '../mailDrivers/log'
 import SMTPDriver from '../mailDrivers/smtp'
-import { rateLimits} from './util'
+import DiscordDriver from '../mailDrivers/discord'
+import { rateLimits } from './util'
 import { SESSION_LENGTH, UNCONFIRMED_USER_SESSION_LENGTH } from './constants'
 
 export const tasks: Array<Task> = []
@@ -89,20 +89,25 @@ export const queueRandom = (task: Task) => {
   return awaitTask(task, randomTasks)
 }
 
-export const queueEmail = (from: string, to: string, subject: string, text?: string, html?: string, driverName: string = process.env.MAIL_DRIVER!) => {
-  let driver: mailDriver
+export const getMailDriver = (driverName: string = process.env.MAIL_DRIVER!) => {
   if (driverName === 'log') {
-    driver = new LogDriver()
+    return new LogDriver()
   } else if (driverName === 'smtp') {
-    driver = new SMTPDriver();
+    const driver = new SMTPDriver();
     (driver as SMTPDriver).init()
+    return driver
+  } else if (driverName === 'discord') {
+    return new DiscordDriver()
   } else {
     debug(`Warning: Invalid mail driver: ${driverName}, valid types are: log, smtp`)
     debug('Warning: Defaulting to log driver')
-    driver = new LogDriver()
+    return new LogDriver()
   }
+}
+
+export const queueEmail = (from: string, to: string, subject: string, text?: string, html?: string) => {
   if (!text && !html) throw new Error('Either text or html should be filled')
-  queue(() => driver.send(from, to, subject, text, html)).catch(err => {
+  queue(() => getMailDriver().send(from, to, subject, text, html)).catch(err => {
     debug('Failed to send email', err)
   })
 }
@@ -124,6 +129,6 @@ setInterval(() => {
 
 setInterval(() => {
   Object.keys(rateLimits).forEach((s) => (rateLimits[s] = {}))
-}, 1000 * 60)
+}, 1000 * 60 * 60)
 
 debug('Initialized background task executor')

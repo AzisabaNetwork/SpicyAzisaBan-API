@@ -7,7 +7,7 @@ import {
   isValidName,
   validate2FAToken,
   generateSecureRandomString,
-  w, getSessionKey, deleteSession, getSession,
+  w, getSessionKey, deleteSession, getSession, getUser,
 } from '../util/util'
 import { createNew } from '../util/totp'
 export const router = express.Router()
@@ -199,7 +199,14 @@ router.get('/get/:id', w(async (req, res) => {
   if (!session) return res.send401()
   const id = parseInt(req.params.id) || 0
   if (isNaN(id) || id <= 0) return res.send400()
-  const user = await sql.findOne('SELECT `id`, `username`, `email`, `group` FROM `users` WHERE `id` = ?', id)
+  const actor = await getUser(session.user_id)
+  if (!actor) return res.send401()
+  let user: User
+  if (actor.group !== 'admin') {
+    user = await sql.findOne('SELECT `id`, `username`, `group` FROM `users` WHERE `id` = ?', id)
+  } else {
+    user = await sql.findOne('SELECT `id`, `username`, `email`, `group` FROM `users` WHERE `id` = ?', id)
+  }
   if (!user) return res.status(404).send({ error: 'not_found' })
   res.send(user)
 }))

@@ -47,7 +47,7 @@ declare type User = {
   id: number
   username: string
   email?: string
-  group: string
+  group: 'user' | 'manager' | 'admin'
   last_update: Date
   linked_uuid?: string | null
   // might be null even if linked_uuid is present
