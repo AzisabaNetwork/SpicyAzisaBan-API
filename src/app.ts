@@ -52,7 +52,10 @@ app.use(express.urlencoded({ extended: false }))
 app.use(cookieParser())
 const c = (allowEmpty: boolean) => cors({
   origin: (origin: string, callback: (err: Error | null, result?: boolean) => void) => {
-    if (!allowEmpty && !origin) return callback(new Error('Not allowed by CORS'))
+    if (!origin) {
+      if (allowEmpty) return callback(null, true)
+      return callback(new Error('Not allowed by CORS'))
+    }
     if (origin === process.env.APP_URL) return callback(null, true)
     if (process.env.ADDITIONAL_CORS?.split(',')?.indexOf(origin) !== -1) return callback(null, true)
     callback(new Error('Not allowed by CORS'))
