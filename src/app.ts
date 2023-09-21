@@ -50,15 +50,15 @@ app.use(logger('dev', {
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
 app.use(cookieParser())
-const c = cors({
+const c = (allowEmpty: boolean) => cors({
   origin: (origin: string, callback: (err: Error | null, result?: boolean) => void) => {
-    if (!origin) return callback(new Error('Not allowed by CORS'))
+    if (!allowEmpty && !origin) return callback(new Error('Not allowed by CORS'))
     if (origin === process.env.APP_URL) return callback(null, true)
     if (process.env.ADDITIONAL_CORS?.split(',')?.indexOf(origin) !== -1) return callback(null, true)
     callback(new Error('Not allowed by CORS'))
   },
 })
-app.use(c)
+app.use(c(true))
 
 app.all('*', function (req, res, next) {
   res.setHeader('Vary', 'Origin')
@@ -68,7 +68,7 @@ app.all('*', function (req, res, next) {
 
 // restrict access for /admin routes
 // @ts-ignore
-app.use('/admin', c, async (req: Request, res: Response, next) => {
+app.use('/admin', c(false), async (req: Request, res: Response, next) => {
   const session = req.session = await validateAndGetSession(req)
   if (!session) return res.send401()
   const user = req.user = await getUser(session.user_id)
