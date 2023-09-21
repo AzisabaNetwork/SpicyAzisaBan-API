@@ -58,9 +58,7 @@ const c = cors({
     callback(new Error('Not allowed by CORS'))
   },
 })
-app.use(cors({
-  origin: '*',
-}))
+app.use(c)
 
 app.all('*', function (req, res, next) {
     res.setHeader('Vary', 'Origin')
