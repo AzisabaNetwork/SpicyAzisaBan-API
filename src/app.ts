@@ -61,8 +61,9 @@ const c = cors({
 app.use(c)
 
 app.all('*', function (req, res, next) {
-    res.setHeader('Vary', 'Origin')
-    next()
+  res.setHeader('Vary', 'Origin')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+  next()
 })
 
 // restrict access for /admin routes
