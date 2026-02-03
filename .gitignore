@@ -4,3 +4,4 @@ package-lock.json
 .idea/
 dist/
 yarn-error.log
+.yarn/install-state.gz
